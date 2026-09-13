@@ -11,6 +11,9 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import com.lewiswalker.savings.observability.AuthenticatedSubjectFilter;
@@ -26,6 +29,31 @@ import com.lewiswalker.savings.observability.AuthenticatedSubjectFilter;
 @EnableWebSecurity
 @EnableConfigurationProperties(SecurityProperties.class)
 public class SecurityConfig {
+
+    /**
+     * The management port.
+     *
+     * <p>Separate chain, matched first, because the management port is a different
+     * surface with a different threat model. It is bound to its own port, is not
+     * published by the customer-facing route, and in a real deployment is reachable only
+     * from the operations network behind SSO.
+     *
+     * <p>Open here so the demo runs with one command. That is a deliberate, documented
+     * demo decision and the first thing that would change: an endpoint that can switch
+     * off a dependency is an endpoint that can cause an incident, and it wants
+     * authentication, an audit trail of who changed what, and four eyes on anything
+     * customer-visible.
+     */
+    @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    SecurityFilterChain managementChain(HttpSecurity http) throws Exception {
+        return http
+                .securityMatcher(EndpointRequest.toAnyEndpoint())
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .build();
+    }
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {

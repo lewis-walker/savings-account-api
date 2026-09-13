@@ -1,0 +1,123 @@
+package com.lewiswalker.savings.observability;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.IThrowableProxy;
+import ch.qos.logback.core.AppenderBase;
+import jakarta.annotation.PostConstruct;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+/**
+ * Keeps the last few hundred log lines in memory so they can be tailed over HTTP.
+ *
+ * <p><b>Why this is safe to expose here and would not be in most services.</b> Streaming
+ * application logs to a browser is normally a bad idea, because application logs are
+ * full of customer data. These are not, and that is not a hope — {@code LogHygieneTest}
+ * asserts it, including against Hibernate's own entity printing. The log hygiene work
+ * is what makes this feature possible rather than reckless.
+ *
+ * <p>It is still an operational surface, so it is served on the management port beside
+ * the feature flags and not on the port customers reach.
+ *
+ * <p><b>Bounded on purpose.</b> A ring buffer with a hard cap, so a service under load
+ * or in a retry storm cannot turn its own logging into a memory leak. Old lines are
+ * dropped, which is correct: this is a live tail for someone watching, not a record.
+ * The record goes to the log aggregator, which is where anyone would actually
+ * investigate anything — this is a convenience for a demo and a debugging session, and
+ * is not a substitute for shipping logs somewhere durable.
+ */
+@Component
+public class LogTail {
+
+    /** Small enough that it cannot matter, large enough to see what just happened. */
+    private static final int CAPACITY = 500;
+
+    public record Entry(long sequence, Instant at, String level, String logger,
+                        String correlationId, String message) {}
+
+    private final Deque<Entry> entries = new ArrayDeque<>(CAPACITY);
+    private final AtomicLong sequence = new AtomicLong();
+
+    @PostConstruct
+    void attachToRootLogger() {
+        Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        Appender appender = new Appender();
+        appender.setContext(root.getLoggerContext());
+        appender.start();
+        root.addAppender(appender);
+    }
+
+    /**
+     * Everything after the given sequence number.
+     *
+     * <p>A sequence rather than a timestamp, so a caller polling repeatedly gets each
+     * line exactly once. Timestamps collide at millisecond resolution under load, and a
+     * tail that duplicates or skips lines is worse than no tail.
+     */
+    public List<Entry> since(long after) {
+        synchronized (entries) {
+            List<Entry> result = new ArrayList<>();
+            for (Entry entry : entries) {
+                if (entry.sequence() > after) {
+                    result.add(entry);
+                }
+            }
+            return result;
+        }
+    }
+
+    public long latestSequence() {
+        return sequence.get();
+    }
+
+    private void record(ILoggingEvent event) {
+        IThrowableProxy thrown = event.getThrowableProxy();
+        String message = event.getFormattedMessage();
+        if (thrown != null) {
+            // The class and message of the cause, never the stack. A tail is for seeing
+            // what is happening; forty frames per line makes that impossible.
+            message = message + " | " + thrown.getClassName() + ": " + thrown.getMessage();
+        }
+        Entry entry = new Entry(
+                sequence.incrementAndGet(),
+                Instant.ofEpochMilli(event.getTimeStamp()),
+                event.getLevel().toString(),
+                shorten(event.getLoggerName()),
+                event.getMDCPropertyMap().get(CorrelationIdFilter.MDC_KEY),
+                message);
+        synchronized (entries) {
+            if (entries.size() >= CAPACITY) {
+                entries.removeFirst();
+            }
+            entries.addLast(entry);
+        }
+    }
+
+    /** com.lewiswalker.savings.account.AccountService -> c.l.s.account.AccountService */
+    private static String shorten(String logger) {
+        String[] parts = logger.split("\\.");
+        if (parts.length <= 3) {
+            return logger;
+        }
+        StringBuilder shortened = new StringBuilder();
+        for (int i = 0; i < parts.length - 2; i++) {
+            shortened.append(parts[i].charAt(0)).append('.');
+        }
+        return shortened.append(parts[parts.length - 2]).append('.')
+                .append(parts[parts.length - 1]).toString();
+    }
+
+    private final class Appender extends AppenderBase<ILoggingEvent> {
+        @Override
+        protected void append(ILoggingEvent event) {
+            record(event);
+        }
+    }
+}

@@ -75,10 +75,18 @@ security:
     password: ${DEMO_PASSWORD:demo-password}
 
 management:
+  server:
+    # A separate port, not a path on the customer-facing one. Operational surfaces -
+    # health detail, metrics, and a switch that changes how the service behaves - have
+    # a different threat model from the account API and should not share an ingress
+    # rule with it. Compose publishes this one; a real deployment binds it to an
+    # internal interface.
+    port: 8081
+
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,featureflags,logtail
   endpoint:
     health:
       show-details: when-authorized

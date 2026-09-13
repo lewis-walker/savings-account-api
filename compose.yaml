@@ -49,6 +49,9 @@ services:
       REDIS_PORT: 6379
     ports:
       - "${API_PORT:-8080}:8080"
+      # The management port, published separately. In a real deployment this is bound
+      # to an internal interface and never appears in a public ingress rule.
+      - "${MANAGEMENT_PORT:-8081}:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,13 +70,28 @@ services:
       #
       # Dependency health is still visible - /actuator/health aggregates it and
       # reports DOWN - it just does not get containers killed.
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health/readiness"]
       interval: 3s
       timeout: 3s
       # The JVM needs a moment. Without a start period the container is declared
       # unhealthy while it is still perfectly normally starting up.
       start_period: 45s
       retries: 20
+    restart: unless-stopped
+
+  # The operations console: feature flags and a live log tail.
+  #
+  # A separate app on a separate port, talking to the backend's management port,
+  # because that is what it is in reality - nobody operates LaunchDarkly by calling
+  # their own service. It is also why it is trivial: one HTML file, no build step.
+  ops-console:
+    build:
+      context: ./ops-console
+    ports:
+      - "${OPS_PORT:-8082}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

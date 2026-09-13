@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savings API · Ops Console</title>
+<style>
+  :root {
+    --bg: #11141a; --panel: #171b23; --line: #262c38; --ink: #dfe4ee;
+    --muted: #8892a4; --accent: #4c8dff; --on: #2ea36b; --off: #58606f;
+    --warn: #d9a441; --err: #e2626b; --debug: #6f7787;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 18px 24px; border-bottom: 1px solid var(--line);
+           display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .01em; }
+  header .sub { color: var(--muted); font-size: 12.5px; }
+  header .port { margin-left: auto; color: var(--muted); font-size: 12px;
+                 font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  main { display: grid; grid-template-columns: minmax(340px, 420px) 1fr;
+         gap: 20px; padding: 20px 24px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) {
+    .line { grid-template-columns: max-content 46px minmax(0, 1fr); }
+    .lg { display: none; }
+  }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  section > h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+                 color: var(--muted); margin: 0; padding: 13px 16px;
+                 border-bottom: 1px solid var(--line); display: flex; gap: 10px;
+                 align-items: center; }
+  .flag { padding: 15px 16px; border-bottom: 1px solid var(--line); }
+  .flag:last-child { border-bottom: 0; }
+  .flag-top { display: flex; align-items: center; gap: 12px; }
+  .flag-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  .flag-desc { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .flag-meta { color: var(--debug); font-size: 11.5px; margin-top: 6px; }
+  .toggle { margin-left: auto; width: 46px; height: 26px; border-radius: 999px;
+            background: var(--off); border: 0; cursor: pointer; position: relative;
+            transition: background .15s ease; flex: none; }
+  .toggle[aria-checked="true"] { background: var(--on); }
+  .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px;
+                   height: 20px; border-radius: 50%; background: #fff;
+                   transition: transform .15s ease; }
+  .toggle[aria-checked="true"]::after { transform: translateX(20px); }
+  .toggle:disabled { opacity: .5; cursor: wait; }
+  .logs { height: calc(100vh - 190px); min-height: 320px; overflow-y: auto;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 12px; line-height: 1.65; padding: 10px 0; }
+  .line { display: grid; grid-template-columns: max-content 46px minmax(0, 170px) minmax(0, 1fr);
+          gap: 12px; padding: 1px 16px; align-items: baseline; }
+  .line:hover { background: #1d222c; }
+  .t { color: var(--debug); white-space: nowrap; }
+  .lv { font-weight: 600; white-space: nowrap; }
+  .lv.INFO { color: var(--accent); } .lv.WARN { color: var(--warn); }
+  .lv.ERROR { color: var(--err); } .lv.DEBUG, .lv.TRACE { color: var(--debug); }
+  .lg { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cid { color: #7d6fd1; }
+  .msg { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--on); flex: none; }
+  .dot.stale { background: var(--err); }
+  .spacer { margin-left: auto; font-size: 11.5px; color: var(--muted);
+            text-transform: none; letter-spacing: 0; font-weight: 400; }
+  label.follow { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .note { padding: 13px 16px; color: var(--debug); font-size: 11.5px;
+          border-top: 1px solid var(--line); }
+  code { background: #0d1016; padding: 1px 5px; border-radius: 4px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Savings API · Ops Console</h1>
+  <span class="sub">stands in for LaunchDarkly and the log aggregator</span>
+  <span class="port">management port :8081</span>
+</header>
+
+<main>
+  <section>
+    <h2><span class="dot" id="flag-dot"></span> Feature flags</h2>
+    <div id="flags"></div>
+    <p class="note">
+      Flags are evaluated on every call, so a change takes effect on the next request —
+      no restart, no redeploy. Try turning <code>redis-cache</code> off and watch the log:
+      reads stop consulting Redis and the service keeps working from Postgres.
+    </p>
+  </section>
+
+  <section>
+    <h2>
+      <span class="dot" id="log-dot"></span> Live log
+      <span class="spacer">
+        <label class="follow"><input type="checkbox" id="follow" checked> follow</label>
+      </span>
+    </h2>
+    <div class="logs" id="logs"></div>
+    <p class="note">
+      Safe to show because these logs carry no customer data — no names, no nicknames, no
+      account numbers. That is asserted by a test, not assumed. The bracketed value is the
+      correlation id, which is also on the error response a customer would quote.
+    </p>
+  </section>
+</main>
+
+<script>
+  const api = (path) => fetch(path, { headers: { 'Accept': 'application/json' } });
+  let cursor = 0;
+
+  async function loadFlags() {
+    const dot = document.getElementById('flag-dot');
+    try {
+      const res = await api('/actuator/featureflags');
+      const { flags } = await res.json();
+      dot.classList.remove('stale');
+      document.getElementById('flags').innerHTML = flags.map(renderFlag).join('');
+      document.querySelectorAll('.toggle').forEach(t =>
+        t.addEventListener('click', () => setFlag(t)));
+    } catch (e) {
+      dot.classList.add('stale');
+    }
+  }
+
+  function renderFlag(f) {
+    const differs = f.enabled !== f.defaultValue;
+    return `<div class="flag">
+      <div class="flag-top">
+        <span class="flag-key">${f.key}</span>
+        <button class="toggle" role="switch" data-key="${f.key}"
+                aria-checked="${f.enabled}" aria-label="toggle ${f.key}"></button>
+      </div>
+      <div class="flag-desc">${f.description}</div>
+      <div class="flag-meta">
+        fail-safe default: ${f.defaultValue}${differs ? ' · currently overridden' : ''}
+      </div>
+    </div>`;
+  }
+
+  async function setFlag(button) {
+    const key = button.dataset.key;
+    const next = button.getAttribute('aria-checked') !== 'true';
+    button.disabled = true;
+    try {
+      await fetch(`/actuator/featureflags/${key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next })
+      });
+      await loadFlags();
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  const box = document.getElementById('logs');
+  const follow = document.getElementById('follow');
+
+  async function pollLogs() {
+    const dot = document.getElementById('log-dot');
+    try {
+      const res = await api(`/actuator/logtail/${cursor}`);
+      const data = await res.json();
+      dot.classList.remove('stale');
+      if (data.entries.length) {
+        box.insertAdjacentHTML('beforeend', data.entries.map(renderLine).join(''));
+        // Keep the DOM bounded too; the server's buffer is capped and this should be.
+        while (box.children.length > 600) box.removeChild(box.firstChild);
+        if (follow.checked) box.scrollTop = box.scrollHeight;
+      }
+      cursor = data.cursor;
+    } catch (e) {
+      dot.classList.add('stale');
+    }
+  }
+
+  const escape = (s) => String(s ?? '').replace(/[&<>"]/g,
+    c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+  function renderLine(e) {
+    const time = new Date(e.at).toLocaleTimeString('en-NZ', { hour12: false }) +
+      '.' + String(new Date(e.at).getMilliseconds()).padStart(3, '0');
+    const cid = e.correlationId ? e.correlationId.slice(0, 8) : '';
+    return `<div class="line">
+      <span class="t">${time}</span>
+      <span class="lv ${escape(e.level)}">${escape(e.level)}</span>
+      <span class="lg" title="${escape(e.logger)}">${escape(e.logger)}</span>
+      <span class="msg"><span class="cid">${cid ? '[' + escape(cid) + '] ' : ''}</span>${escape(e.message)}</span>
+    </div>`;
+  }
+
+  loadFlags();
+  pollLogs();
+  setInterval(pollLogs, 1000);
+  setInterval(loadFlags, 5000);
+</script>
+</body>
+</html>
