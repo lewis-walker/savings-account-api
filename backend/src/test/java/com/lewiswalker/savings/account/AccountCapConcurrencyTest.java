@@ -121,9 +121,9 @@ class AccountCapConcurrencyTest {
             accountService.open(first, null);
         }
 
-        Account other = accountService.open(second, null);
+        AccountView other = accountService.open(second, null);
 
-        assertThat(other.getSequenceNo()).isEqualTo((short) 1);
+        assertThat(other.sequenceNo()).isEqualTo((short) 1);
         assertThat(repository.findByCustomerIdOrderBySequenceNo(second)).hasSize(1);
     }
 }

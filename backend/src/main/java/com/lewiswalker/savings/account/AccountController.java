@@ -37,9 +37,9 @@ public class AccountController {
     @PostMapping
     public ResponseEntity<AccountResponse> open(@AuthenticationPrincipal Jwt caller,
                                                 @Valid @RequestBody OpenAccountRequest request) {
-        Account account = accounts.open(customerId(caller), request.nickname());
+        AccountView account = accounts.open(customerId(caller), request.nickname());
         return ResponseEntity
-                .created(URI.create("/accounts/" + account.getId()))
+                .created(URI.create("/accounts/" + account.id()))
                 .body(AccountResponse.of(account));
     }
 
@@ -54,7 +54,7 @@ public class AccountController {
     @GetMapping("/{id}")
     public AccountResponse get(@AuthenticationPrincipal Jwt caller, @PathVariable UUID id) {
         return accounts.findById(id)
-                .filter(account -> account.getCustomerId().equals(customerId(caller)))
+                .filter(account -> account.customerId().equals(customerId(caller)))
                 .map(AccountResponse::of)
                 .orElseThrow(() -> new AccountNotFoundException(id));
     }

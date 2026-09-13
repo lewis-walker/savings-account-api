@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.lewiswalker.savings.cache.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
@@ -49,6 +51,8 @@ public class DemoCustomerDirectory implements CustomerDirectory {
      * retries is the point: only unavailability. An unknown customer is a final answer
      * and retrying it would delay a definite no.
      */
+    @Cacheable(value = CacheConfig.CUSTOMERS, key = "#customerId",
+            condition = "@featureFlags.redisCacheEnabled()")
     @Retryable(
             includes = CustomerDirectoryUnavailableException.class,
             maxRetries = 2,

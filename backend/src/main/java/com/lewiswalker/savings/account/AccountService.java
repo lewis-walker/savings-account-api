@@ -1,5 +1,6 @@
 package com.lewiswalker.savings.account;
 
+import com.lewiswalker.savings.cache.CacheConfig;
 import com.lewiswalker.savings.customer.Customer;
 import com.lewiswalker.savings.customer.CustomerDirectory;
 import com.lewiswalker.savings.customer.CustomerNotVerifiedException;
@@ -10,6 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,7 +54,7 @@ public class AccountService {
      * @throws UnknownCustomerException      the master has no such customer
      * @throws CustomerNotVerifiedException  due diligence is not complete
      */
-    public Account open(UUID customerId, String nickname) {
+    public AccountView open(UUID customerId, String nickname) {
         // Cheap and local first: a rejected nickname should not cost a remote call.
         // Safe to order it this way because the customer is the caller themselves, so
         // an early answer tells them nothing they do not already know about themselves.
@@ -71,8 +73,8 @@ public class AccountService {
         SequenceContendedException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                return writer.attemptOpen(customerId, customer.fullName(), nickname,
-                        ACCOUNTS_PER_CUSTOMER);
+                return AccountView.of(writer.attemptOpen(customerId, customer.fullName(),
+                        nickname, ACCOUNTS_PER_CUSTOMER));
             } catch (SequenceContendedException e) {
                 last = e;
                 log.debug("sequence contended for customer {}, attempt {} of {}",
@@ -86,13 +88,41 @@ public class AccountService {
         throw new AccountCapReachedException(customerId, ACCOUNTS_PER_CUSTOMER);
     }
 
+    /**
+     * One account by id.
+     *
+     * <p>Cached because the brief asks for it. It is worth being honest that it buys
+     * nothing: this is a primary-key lookup on a narrow table, which Postgres answers
+     * from its own buffer pool in microseconds, and Redis adds a network hop to it.
+     * See {@link CacheConfig} for the full argument, and {@link AccountCacheWarmer} for
+     * the part that makes it <em>correct</em> rather than merely present.
+     *
+     * <p>Note the absence of an ownership check here. The cache is keyed by account id
+     * alone, so one entry serves whoever asks; the caller's right to see it is decided
+     * afterwards, against the returned value. Keying the cache per caller would be a
+     * cache with a hit rate of nearly zero.
+     */
+    @Cacheable(value = CacheConfig.ACCOUNTS, key = "#id",
+            // Evaluated on every call, so flipping the switch takes effect on the next
+            // request rather than the next deployment. That is the entire point: a
+            // configuration property would need a restart, which is exactly what nobody
+            // wants during the incident that made them want the switch.
+            condition = "@featureFlags.redisCacheEnabled()")
     @Transactional(readOnly = true)
-    public Optional<Account> findById(UUID id) {
-        return repository.findById(id);
+    public Optional<AccountView> findById(UUID id) {
+        return repository.findById(id).map(AccountView::of);
     }
 
+    /**
+     * Not cached, deliberately. A per-customer list is invalidated by any account
+     * opening, and the customers who read it most are the ones whose lists change most.
+     * A cache whose entries are evicted about as often as they are read is pure overhead
+     * with an invalidation bug waiting in it.
+     */
     @Transactional(readOnly = true)
-    public List<Account> findForCustomer(UUID customerId) {
-        return repository.findByCustomerIdOrderBySequenceNo(customerId);
+    public List<AccountView> findForCustomer(UUID customerId) {
+        return repository.findByCustomerIdOrderBySequenceNo(customerId).stream()
+                .map(AccountView::of)
+                .toList();
     }
 }

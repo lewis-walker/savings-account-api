@@ -53,6 +53,15 @@ spring:
       timeout: 500ms          # the cache must never be the slow part of a request
       connect-timeout: 500ms
 
+features:
+  # Stand-in for LaunchDarkly. A real deployment leaves this empty and takes values
+  # from the flag service; this exists so the demo can be driven from the environment.
+  #
+  #   docker compose run -e FEATURES_ENABLED_REDIS-CACHE=false backend
+  #
+  enabled:
+    redis-cache: ${FEATURE_REDIS_CACHE:true}
+
 security:
   jwt:
     issuer: ${JWT_ISSUER:https://savings-account-api.local}

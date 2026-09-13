@@ -10,7 +10,8 @@ import java.util.UUID;
  * couples the wire format to the schema, so a column rename becomes a breaking API
  * change and a column added for internal use is published to the world by accident.
  * {@code sequenceNo} is a case in point: the database needs it to enforce the account
- * cap, and no caller has any business knowing it.
+ * cap, and no caller has any business knowing it. {@link AccountView} carries it
+ * because the service needs it; this deliberately does not.
  */
 public record AccountResponse(
         UUID id,
@@ -26,12 +27,12 @@ public record AccountResponse(
         String nickname,
         Instant openedAt) {
 
-    public static AccountResponse of(Account account) {
+    public static AccountResponse of(AccountView account) {
         return new AccountResponse(
-                account.getId(),
-                account.getAccountNumber(),
-                account.getCustomerName(),
-                account.getNickname(),
-                account.getCreatedAt());
+                account.id(),
+                account.accountNumber(),
+                account.customerName(),
+                account.nickname(),
+                account.openedAt());
     }
 }

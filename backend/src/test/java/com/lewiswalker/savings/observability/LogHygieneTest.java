@@ -8,7 +8,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.lewiswalker.savings.TestcontainersConfiguration;
 import com.lewiswalker.savings.support.StubCustomerDirectory;
-import com.lewiswalker.savings.account.Account;
+import com.lewiswalker.savings.account.AccountView;
 import com.lewiswalker.savings.account.AccountCapReachedException;
 import com.lewiswalker.savings.account.AccountService;
 import java.util.List;
@@ -79,9 +79,9 @@ class LogHygieneTest {
     void openingAnAccountLeaksNothing() {
         UUID customerId = UUID.randomUUID();
 
-        Account account = accountService.open(customerId, NICKNAME);
+        AccountView account = accountService.open(customerId, NICKNAME);
 
-        assertNothingLoggedContains(CUSTOMER_NAME, NICKNAME, account.getAccountNumber());
+        assertNothingLoggedContains(CUSTOMER_NAME, NICKNAME, account.accountNumber());
     }
 
     @Test
@@ -90,7 +90,7 @@ class LogHygieneTest {
         UUID customerId = UUID.randomUUID();
         String accountNumber = null;
         for (int i = 0; i < AccountService.ACCOUNTS_PER_CUSTOMER; i++) {
-            accountNumber = accountService.open(customerId, NICKNAME).getAccountNumber();
+            accountNumber = accountService.open(customerId, NICKNAME).accountNumber();
         }
         try {
             accountService.open(customerId, NICKNAME);

@@ -55,9 +55,18 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      # Readiness, not liveness: this reports whether the service can actually
-      # serve traffic, which includes its database being reachable. Stopping the
-      # postgres container turns this red, which is the point.
+      # Readiness, and deliberately not the aggregate /actuator/health.
+      #
+      # Readiness reports whether *this instance* can accept traffic. It does not
+      # include Postgres or Redis, and that is the decision rather than an
+      # oversight: if it did, a shared database blip would fail readiness on every
+      # instance at once, all of them would leave rotation, and callers would get
+      # connection failures instead of the 503 problem document this service is
+      # perfectly capable of returning. A partial outage would have been converted
+      # into a total one.
+      #
+      # Dependency health is still visible - /actuator/health aggregates it and
+      # reports DOWN - it just does not get containers killed.
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
       interval: 3s
       timeout: 3s

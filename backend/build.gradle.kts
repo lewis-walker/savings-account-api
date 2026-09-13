@@ -39,8 +39,10 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	// Transitive "implementation" dependencies are deliberately not on the compile
 	// classpath, so anything the tests import is declared even when it is already
-	// present at runtime.
-	testImplementation("com.fasterxml.jackson.core:jackson-databind")
+	// present at runtime. Note tools.jackson, not com.fasterxml: Boot 4 ships
+	// Jackson 3, and declaring the 2.x artifact here quietly put a second, different
+	// Jackson on the test classpath.
+	testImplementation("tools.jackson.core:jackson-databind")
 	testImplementation("org.assertj:assertj-core")
 	testImplementation("org.junit.jupiter:junit-jupiter-params")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
