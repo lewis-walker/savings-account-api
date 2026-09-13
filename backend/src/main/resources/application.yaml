@@ -46,6 +46,18 @@ spring:
       timeout: 500ms          # the cache must never be the slow part of a request
       connect-timeout: 500ms
 
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:https://savings-account-api.local}
+    audience: ${JWT_AUDIENCE:savings-account-api}
+    # Short, because there is no revocation list. This value is exactly the window in
+    # which a stolen token is useful.
+    access-token-ttl: 15m
+  demo:
+    # Demo only. A real deployment has no token endpoint here at all - see
+    # TokenController - so there is no password for this service to hold.
+    password: ${DEMO_PASSWORD:demo-password}
+
 management:
   endpoints:
     web:

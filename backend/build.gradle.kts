@@ -37,6 +37,10 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	// Transitive "implementation" dependencies are deliberately not on the compile
+	// classpath, so anything the tests import is declared even when it is already
+	// present at runtime.
+	testImplementation("com.fasterxml.jackson.core:jackson-databind")
 	testImplementation("org.assertj:assertj-core")
 	testImplementation("org.junit.jupiter:junit-jupiter-params")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
