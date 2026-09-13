@@ -52,7 +52,7 @@ public class AccountWriter {
 
         Account account = new Account(
                 UUID.randomUUID(),
-                accountNumbers.generate(repository.nextAccountNumberSeed()),
+                accountNumbers.generate(repository::nextAccountNumberSeed),
                 customerId,
                 customerName,
                 nickname,
