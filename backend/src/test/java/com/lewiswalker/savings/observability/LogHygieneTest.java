@@ -7,6 +7,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.lewiswalker.savings.TestcontainersConfiguration;
+import com.lewiswalker.savings.support.StubCustomerDirectory;
 import com.lewiswalker.savings.account.Account;
 import com.lewiswalker.savings.account.AccountCapReachedException;
 import com.lewiswalker.savings.account.AccountService;
@@ -33,11 +34,15 @@ import org.springframework.context.annotation.Import;
  * sits, since Hibernate will happily print bind parameters if configured to.
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, StubCustomerDirectory.class})
 class LogHygieneTest {
 
-    /** Distinctive enough that an accidental appearance cannot be a coincidence. */
-    private static final String CUSTOMER_NAME = "Wilhelmina Featherstonehaugh";
+    /**
+     * The name now arrives from the customer directory rather than the request, so it
+     * is taken from the stub that supplies it — asserting on a hard-coded copy would
+     * silently stop testing anything the moment the stub changed.
+     */
+    private static final String CUSTOMER_NAME = StubCustomerDirectory.ANY_CUSTOMER_NAME;
     private static final String NICKNAME = "Sapphire holiday fund";
 
     @Autowired
@@ -74,7 +79,7 @@ class LogHygieneTest {
     void openingAnAccountLeaksNothing() {
         UUID customerId = UUID.randomUUID();
 
-        Account account = accountService.open(customerId, CUSTOMER_NAME, NICKNAME);
+        Account account = accountService.open(customerId, NICKNAME);
 
         assertNothingLoggedContains(CUSTOMER_NAME, NICKNAME, account.getAccountNumber());
     }
@@ -85,10 +90,10 @@ class LogHygieneTest {
         UUID customerId = UUID.randomUUID();
         String accountNumber = null;
         for (int i = 0; i < AccountService.ACCOUNTS_PER_CUSTOMER; i++) {
-            accountNumber = accountService.open(customerId, CUSTOMER_NAME, NICKNAME).getAccountNumber();
+            accountNumber = accountService.open(customerId, NICKNAME).getAccountNumber();
         }
         try {
-            accountService.open(customerId, CUSTOMER_NAME, NICKNAME);
+            accountService.open(customerId, NICKNAME);
         } catch (AccountCapReachedException expected) {
             // the exception path is exactly where careless logging tends to appear
         }

@@ -3,6 +3,7 @@ package com.lewiswalker.savings.account;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.lewiswalker.savings.TestcontainersConfiguration;
+import com.lewiswalker.savings.support.StubCustomerDirectory;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -27,7 +28,7 @@ import org.springframework.context.annotation.Import;
  * tell the two apart is to make the requests actually overlap.
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, StubCustomerDirectory.class})
 class AccountCapConcurrencyTest {
 
     private static final int CONCURRENT_REQUESTS = 16;
@@ -60,7 +61,7 @@ class AccountCapConcurrencyTest {
                     .mapToObj(i -> pool.submit(() -> {
                         try {
                             release.await();
-                            accountService.open(customerId, "Ada Lovelace", null);
+                            accountService.open(customerId, null);
                             opened.incrementAndGet();
                         } catch (AccountCapReachedException e) {
                             refused.incrementAndGet();
@@ -101,14 +102,14 @@ class AccountCapConcurrencyTest {
     void sixthAccountIsRefused() {
         UUID customerId = UUID.randomUUID();
         for (int i = 0; i < AccountService.ACCOUNTS_PER_CUSTOMER; i++) {
-            accountService.open(customerId, "Grace Hopper", null);
+            accountService.open(customerId, null);
         }
 
         assertThat(repository.findByCustomerIdOrderBySequenceNo(customerId)).hasSize(5);
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 AccountCapReachedException.class,
-                () -> accountService.open(customerId, "Grace Hopper", null));
+                () -> accountService.open(customerId, null));
     }
 
     @Test
@@ -117,10 +118,10 @@ class AccountCapConcurrencyTest {
         UUID first = UUID.randomUUID();
         UUID second = UUID.randomUUID();
         for (int i = 0; i < AccountService.ACCOUNTS_PER_CUSTOMER; i++) {
-            accountService.open(first, "Ada Lovelace", null);
+            accountService.open(first, null);
         }
 
-        Account other = accountService.open(second, "Alan Turing", null);
+        Account other = accountService.open(second, null);
 
         assertThat(other.getSequenceNo()).isEqualTo((short) 1);
         assertThat(repository.findByCustomerIdOrderBySequenceNo(second)).hasSize(1);

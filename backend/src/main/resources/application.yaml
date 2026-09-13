@@ -35,6 +35,13 @@ spring:
         jdbc:
           time_zone: UTC
 
+  jackson:
+    deserialization:
+      # Reject unknown properties rather than ignoring them. A client that sends
+      # customerName - which this API does not accept, because the name comes from the
+      # verified customer record - is told so, instead of watching it silently vanish.
+      fail-on-unknown-properties: true
+
   flyway:
     enabled: true
     locations: classpath:db/migration

@@ -1,5 +1,9 @@
 package com.lewiswalker.savings.account;
 
+import com.lewiswalker.savings.customer.Customer;
+import com.lewiswalker.savings.customer.CustomerDirectory;
+import com.lewiswalker.savings.customer.CustomerNotVerifiedException;
+import com.lewiswalker.savings.customer.UnknownCustomerException;
 import com.lewiswalker.savings.nickname.OffensiveNicknameChecker;
 import java.util.List;
 import java.util.Optional;
@@ -27,12 +31,15 @@ public class AccountService {
     private final AccountWriter writer;
     private final AccountRepository repository;
     private final OffensiveNicknameChecker nicknameChecker;
+    private final CustomerDirectory customers;
 
     public AccountService(AccountWriter writer, AccountRepository repository,
-                          OffensiveNicknameChecker nicknameChecker) {
+                          OffensiveNicknameChecker nicknameChecker,
+                          CustomerDirectory customers) {
         this.writer = writer;
         this.repository = repository;
         this.nicknameChecker = nicknameChecker;
+        this.customers = customers;
     }
 
     /**
@@ -42,15 +49,30 @@ public class AccountService {
      * because each attempt gets its own; see {@link AccountWriter}.
      *
      * @param customerId from the authenticated principal, never from the request body
+     * @throws UnknownCustomerException      the master has no such customer
+     * @throws CustomerNotVerifiedException  due diligence is not complete
      */
-    public Account open(UUID customerId, String customerName, String nickname) {
-        // Before touching the database: a rejected nickname should cost nothing.
+    public Account open(UUID customerId, String nickname) {
+        // Cheap and local first: a rejected nickname should not cost a remote call.
+        // Safe to order it this way because the customer is the caller themselves, so
+        // an early answer tells them nothing they do not already know about themselves.
         nicknameChecker.check(nickname);
+
+        // The name on the account comes from the verified customer record, never from
+        // the request. Under AML/CFT an account is opened for a customer whose identity
+        // has already been established; a name asserted by the caller would be an
+        // unverified claim written into a banking record.
+        Customer customer = customers.findById(customerId)
+                .orElseThrow(() -> new UnknownCustomerException(customerId));
+        if (!customer.mayOpenAccounts()) {
+            throw new CustomerNotVerifiedException(customer.dueDiligence());
+        }
 
         SequenceContendedException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                return writer.attemptOpen(customerId, customerName, nickname, ACCOUNTS_PER_CUSTOMER);
+                return writer.attemptOpen(customerId, customer.fullName(), nickname,
+                        ACCOUNTS_PER_CUSTOMER);
             } catch (SequenceContendedException e) {
                 last = e;
                 log.debug("sequence contended for customer {}, attempt {} of {}",
