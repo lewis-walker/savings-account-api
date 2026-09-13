@@ -49,6 +49,10 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+tasks.withType<JavaCompile> {
+	options.compilerArgs.add("-Xlint:deprecation")
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 }

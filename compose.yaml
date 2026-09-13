@@ -1,0 +1,71 @@
+# git clone && docker compose up --build
+#
+# Nothing else is required on the machine. The backend image builds its own jar,
+# so no JDK and no Gradle; Postgres and Redis come up beside it.
+
+name: savings-account-api
+
+services:
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-savings}
+      POSTGRES_USER: ${DB_USER:-savings}
+      # Demo credentials, in the open on purpose so the stack starts with nothing
+      # to configure. A real deployment takes these from a secret manager and the
+      # database is not reachable from a developer's laptop at all.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-savings}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      # pg_isready, not a sleep. depends_on below waits for this to pass, which is
+      # what makes `up` work first time rather than most times.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-savings} -d ${DB_NAME:-savings}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-savings}
+      DB_USER: ${DB_USER:-savings}
+      DB_PASSWORD: ${DB_PASSWORD:-savings}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Readiness, not liveness: this reports whether the service can actually
+      # serve traffic, which includes its database being reachable. Stopping the
+      # postgres container turns this red, which is the point.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 3s
+      timeout: 3s
+      # The JVM needs a moment. Without a start period the container is declared
+      # unhealthy while it is still perfectly normally starting up.
+      start_period: 45s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

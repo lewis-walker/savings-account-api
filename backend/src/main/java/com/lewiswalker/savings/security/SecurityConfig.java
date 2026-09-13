@@ -12,6 +12,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
+import com.lewiswalker.savings.observability.AuthenticatedSubjectFilter;
 
 /**
  * The resource server configuration — the part of this package that is real.
@@ -52,6 +54,11 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
 
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
+
+                // Inside the chain, after the security context is established and
+                // before Spring Security clears it, so the access log can name the
+                // caller. See AuthenticatedSubjectFilter.
+                .addFilterAfter(new AuthenticatedSubjectFilter(), SecurityContextHolderFilter.class)
                 .build();
     }
 

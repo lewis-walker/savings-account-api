@@ -84,7 +84,7 @@ class AccountApiTest {
     @DisplayName("an offensive nickname is a 422 that does not repeat it back")
     void offensiveNicknameIsRejected() throws Exception {
         String body = mockMvc.perform(openAccount(ADA, "{\"nickname\":\"my badword account\"}"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(body).doesNotContain("badword");

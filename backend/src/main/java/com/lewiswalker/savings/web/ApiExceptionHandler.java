@@ -19,6 +19,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.transaction.TransactionException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -68,7 +69,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         // 422 rather than 400: syntactically valid and semantically refused. The
         // nickname itself is never echoed back - repeating it serves no purpose and
         // puts caller-supplied text into another response.
-        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "nickname-not-acceptable",
+        //
+        // UNPROCESSABLE_CONTENT, not UNPROCESSABLE_ENTITY: RFC 9110 renamed 422 and
+        // Spring Framework 7 deprecated the old constant. Same status code.
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, "nickname-not-acceptable",
                 "Nickname not acceptable",
                 "That nickname cannot be used. Please choose another.");
     }
@@ -112,12 +116,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(DataAccessException.class)
-    ProblemDetail databaseUnavailable(DataAccessException e) {
-        // Anything reaching here was not a violation the service understood, so it is
-        // an infrastructure failure from the caller's point of view: 503, not 500.
-        // The message is emphatically not passed through - it can contain SQL, schema
-        // names and the values being written.
+    @ExceptionHandler({DataAccessException.class, TransactionException.class})
+    ProblemDetail databaseUnavailable(RuntimeException e) {
+        // Both, and the second is the one that actually fires when Postgres is gone.
+        // Failing to get a connection surfaces as CannotCreateTransactionException,
+        // which extends TransactionException - a sibling of DataAccessException, not a
+        // subclass. Handling only DataAccessException looks right, passes every test
+        // that uses a working database, and produces a bare 500 the first time the
+        // database is actually down. Found by stopping the container, not by reading.
+        //
+        // Anything reaching here was not a violation the service understood, so from
+        // the caller's point of view it is infrastructure: 503, not 500. The message is
+        // emphatically not passed through - it can carry SQL, schema names and the
+        // values being written.
         log.error("database access failed", e);
         ProblemDetail problem = problem(HttpStatus.SERVICE_UNAVAILABLE, "temporarily-unavailable",
                 "Temporarily unavailable",

@@ -79,6 +79,9 @@ management:
 logging:
   level:
     com.lewiswalker.savings: INFO
+    # One line per request. Named rather than package-scoped so it can be turned
+    # up or down on its own, and so it is obvious in a log aggregator.
+    access: INFO
 
     # Pinned, and this is a control rather than tidiness.
     #
