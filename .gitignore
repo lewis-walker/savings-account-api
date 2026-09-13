@@ -1,20 +1,6 @@
 # --- working notes (never published) ---
 notes/
 
-# --- Java / Gradle ---
-build/
-.gradle/
-!gradle/wrapper/gradle-wrapper.jar
-*.class
-*.jar
-!gradle-wrapper.jar
-
-# --- Node ---
-node_modules/
-dist/
-.vite/
-*.local
-
 # --- env / secrets ---
 .env
 .env.*
@@ -25,3 +11,7 @@ dist/
 *.iml
 .vscode/
 .DS_Store
+
+# Java/Gradle ignores live in backend/.gitignore, Node ignores in frontend/.gitignore
+# so the Gradle wrapper jar (which MUST be committed for `./gradlew` to work on a
+# fresh clone) isn't caught by a blanket *.jar rule here.
