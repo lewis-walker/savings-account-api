@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -36,6 +37,29 @@ public class DemoCustomerDirectory implements CustomerDirectory {
                 .collect(Collectors.toUnmodifiableMap(Customer::id, Function.identity()));
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The policy is here rather than on the port because how hard to try is a
+     * property of the transport, not of the question being asked.
+     *
+     * <p>It cannot fire against this adapter — an in-process map does not fail
+     * transiently — and it is annotated anyway, because this is the seam the real
+     * adapter drops into and the policy is part of what that seam is for. What it
+     * retries is the point: only unavailability. An unknown customer is a final answer
+     * and retrying it would delay a definite no.
+     */
+    @Retryable(
+            includes = CustomerDirectoryUnavailableException.class,
+            maxRetries = 2,
+            delay = 100,
+            jitter = 50,
+            multiplier = 2.0,
+            maxDelay = 500,
+            // A ceiling on the whole affair. Without it a policy can quietly outlast
+            // the caller's own timeout, and the work is thrown away by someone who has
+            // already given up.
+            timeout = 2000)
     @Override
     public Optional<Customer> findById(UUID customerId) {
         return Optional.ofNullable(customers.get(customerId));
