@@ -16,6 +16,11 @@ spring:
       initialization-fail-timeout: -1   # start even if Postgres is not up yet
 
   jpa:
+    # Never on in a deployed profile. show-sql prints the statements, and TRACE on
+    # the bind logger prints the parameter values alongside them - which is every
+    # value the rest of this configuration takes care to keep out of the logs.
+    show-sql: false
+
     # Flyway owns the schema. ddl-auto beyond 'validate' would let Hibernate quietly
     # disagree with the migrations, and the constraints doing the real work here are
     # ones Hibernate would not generate anyway.
@@ -55,3 +60,21 @@ management:
 logging:
   level:
     com.lewiswalker.savings: INFO
+
+    # Pinned, and this is a control rather than tidiness.
+    #
+    # Hibernate's EntityPrinter reflects over every field of an entity and prints it
+    # when org.hibernate.orm.core is at DEBUG - customer name and nickname included.
+    # It does not use the entity's own toString, so a careful toString does not help.
+    #
+    # An explicit level on a logger overrides the root level, so raising the root to
+    # DEBUG during an incident - which is exactly when someone does it, under pressure,
+    # in production - cannot switch this back on. Anyone who turns it on has to do so
+    # deliberately, on this named logger.
+    org.hibernate: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+
+  # %X pulls from the MDC, which CorrelationIdFilter populates per request.
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [%X{correlationId:-no-correlation-id}] %-40.40logger{39} : %m%n%wEx"

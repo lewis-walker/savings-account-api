@@ -100,8 +100,17 @@ public class Account {
         return Objects.hashCode(id);
     }
 
+    /**
+     * Identifiers only — never attributes.
+     *
+     * <p>An earlier version included the account number, which put it into any log line
+     * that interpolated an Account. That is CWE-532, and in a bank it is a finding, not
+     * a style note. The id is an opaque UUID that means nothing without database
+     * access; the account number, the customer name and the nickname are all things a
+     * log reader should not be handed.
+     */
     @Override
     public String toString() {
-        return "Account[id=%s, accountNumber=%s, sequenceNo=%d]".formatted(id, accountNumber, sequenceNo);
+        return "Account[id=%s, sequenceNo=%d]".formatted(id, sequenceNo);
     }
 }
