@@ -27,9 +27,9 @@ public class AccountWriter {
     static final String SEQUENCE_CONSTRAINT = "account_customer_sequence_uq";
 
     private final AccountRepository repository;
-    private final AccountNumberGenerator accountNumbers;
+    private final AccountNumberAllocator accountNumbers;
 
-    public AccountWriter(AccountRepository repository, AccountNumberGenerator accountNumbers) {
+    public AccountWriter(AccountRepository repository, AccountNumberAllocator accountNumbers) {
         this.repository = repository;
         this.accountNumbers = accountNumbers;
     }
@@ -50,9 +50,14 @@ public class AccountWriter {
             throw new AccountCapReachedException(customerId, cap);
         }
 
+        // Minted before allocation so it can serve as the allocator's client
+        // reference. Once idempotency keys exist, the key is the better reference:
+        // it is stable across a client's retries, where a fresh id is not.
+        UUID id = UUID.randomUUID();
+
         Account account = new Account(
-                UUID.randomUUID(),
-                accountNumbers.generate(repository::nextAccountNumberSeed),
+                id,
+                accountNumbers.allocate(customerId, id.toString()),
                 customerId,
                 customerName,
                 nickname,

@@ -1,11 +1,10 @@
 package com.lewiswalker.savings.account;
 
 import java.util.Optional;
-import java.util.function.LongSupplier;
 import org.springframework.stereotype.Component;
 
 /**
- * Allocates account numbers in the New Zealand format: {@code BB-bbbb-AAAAAAA-SSS}
+ * The New Zealand bank account number format: {@code BB-bbbb-AAAAAAA-SSS}
  * — two digits of bank, four of branch, seven of account base, three of suffix.
  *
  * <p>Numbers satisfy the standard NZ modulus-11 check. The weights below are the
@@ -22,7 +21,7 @@ import org.springframework.stereotype.Component;
  * would need the full table.
  */
 @Component
-public class AccountNumberGenerator {
+public class NzAccountNumberFormat {
 
     /** Not a registered NZ bank ID. See the class note. */
     static final String BANK_ID = "99";
@@ -49,32 +48,16 @@ public class AccountNumberGenerator {
     /** Five digits of body, leaving the sixth to be solved as the check digit. */
     private static final long MAX_BODY_EXCLUSIVE = 99_000;
 
-    /** A residue of 10 is not a digit, so roughly one seed in eleven yields nothing. */
-    private static final int MAX_SEEDS_PER_NUMBER = 32;
-
     /**
-     * Draws sequence values until one yields an issuable number.
+     * Formats one sequence value as an account number.
      *
-     * <p>Takes a supplier rather than a value because not every sequence value maps to
-     * a valid number — when the checksum solves to 10 there is no digit to write, and
-     * the only thing to do is take the next one. Real schemes have the same hole.
+     * <p>Empty when the checksum solves to 10, which is not a digit. Roughly one
+     * sequence value in eleven has no issuable number; the real scheme has the same
+     * hole, and the only thing to do about it is take the next value.
+     *
+     * @return the account number, or empty when this value cannot be issued
      */
-    public String generate(LongSupplier sequence) {
-        for (int draw = 0; draw < MAX_SEEDS_PER_NUMBER; draw++) {
-            Optional<String> issued = tryGenerate(sequence.getAsLong());
-            if (issued.isPresent()) {
-                return issued.get();
-            }
-        }
-        throw new IllegalStateException(
-                "no issuable account number after " + MAX_SEEDS_PER_NUMBER + " sequence draws");
-    }
-
-    /**
-     * @return the account number for this sequence value, or empty when the checksum
-     *         has no digit solution
-     */
-    Optional<String> tryGenerate(long seed) {
+    public Optional<String> format(long seed) {
         if (seed < 0) {
             throw new IllegalArgumentException("sequence value must not be negative");
         }
