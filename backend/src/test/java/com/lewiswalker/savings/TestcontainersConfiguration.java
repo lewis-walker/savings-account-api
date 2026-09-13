@@ -8,17 +8,17 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @TestConfiguration(proxyBeanMethods = false)
-class TestcontainersConfiguration {
+public class TestcontainersConfiguration {
 
 	@Bean
 	@ServiceConnection
-	PostgreSQLContainer postgresContainer() {
+	public PostgreSQLContainer postgresContainer() {
 		return new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
 	}
 
 	@Bean
 	@ServiceConnection(name = "redis")
-	GenericContainer<?> redisContainer() {
+	public GenericContainer<?> redisContainer() {
 		return new GenericContainer<>(DockerImageName.parse("redis:8-alpine")).withExposedPorts(6379);
 	}
 

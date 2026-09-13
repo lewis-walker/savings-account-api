@@ -1,0 +1,14 @@
+# Nicknames that will not be accepted on an account.
+#
+# Entries are normalised the same way inputs are (lower-cased, leetspeak folded,
+# non-letters stripped), so write them in plain lower case and do not bother with
+# punctuation or spelling variants.
+#
+# Deliberately mild placeholders. A real list is sourced from a moderation service
+# or an operations-owned table, not from a file in the repository.
+badword
+offensive
+profanity
+slur
+rudeword
+notallowed

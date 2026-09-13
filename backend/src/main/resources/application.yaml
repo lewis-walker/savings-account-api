@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: savings-account-api
+
+  datasource:
+    # Overridden by the environment in Docker; these defaults are for running
+    # against a local compose stack directly from an IDE.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/savings}
+    username: ${DB_USER:savings}
+    password: ${DB_PASSWORD:savings}
+    hikari:
+      # Fail a request that cannot get a connection rather than letting callers
+      # queue up behind a dead database. Pairs with the circuit breaker.
+      connection-timeout: 3000
+      validation-timeout: 2000
+      initialization-fail-timeout: -1   # start even if Postgres is not up yet
+
+  jpa:
+    # Flyway owns the schema. ddl-auto beyond 'validate' would let Hibernate quietly
+    # disagree with the migrations, and the constraints doing the real work here are
+    # ones Hibernate would not generate anyway.
+    hibernate:
+      ddl-auto: validate
+    # The open-session-in-view default keeps a database connection pinned for the
+    # whole request, including view rendering, and turns lazy loading into
+    # accidental queries from the serialisation layer. Off.
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 500ms          # the cache must never be the slow part of a request
+      connect-timeout: 500ms
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true         # /readiness and /liveness for compose healthchecks
+
+logging:
+  level:
+    com.lewiswalker.savings: INFO
