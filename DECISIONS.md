@@ -54,11 +54,15 @@ CSRF protection is disabled because authentication does not use cookies. This de
 
 ## Resilience
 
-Retries apply only to transient unavailability failures at the two integration ports. Permanent failures are returned immediately.
+Retries apply at the two integration ports — the customer directory and account-number allocation — and only to transient unavailability. Permanent failures are returned immediately: an unknown customer will still be unknown after a delay, so a retry spends time without changing the answer.
 
-Connection acquisition has a three-second timeout, and database operations are not retried; retries would extend request latency while occupying a thread. There is no statement timeout, so a database that is reachable but blocked is not bounded by that. Sustained dependency outages require a circuit breaker. The account-slot contention loop retries immediately because another request winning a slot does not indicate dependency unavailability.
+Retries are deliberately not applied anywhere else.
 
-The allocator port carries a client reference so that a remote adapter can be retried safely when an earlier request succeeded and its response was lost. The local adapter ignores it, because a sequence draw inside the caller's transaction leaves no partial state to reconcile.
+- **The database.** Acquiring a connection times out after three seconds, so a request against a stopped database fails quickly instead of hanging. Retrying would multiply that wait while holding a request thread. The right response to a dependency that is down is to stop calling it, which needs a circuit breaker; that is listed as out of scope below.
+- **A database that is reachable but blocked.** The three-second timeout covers acquiring a connection, not running a statement. A database that accepts connections but cannot answer — waiting on a lock, for instance — is not covered by it.
+- **The account-slot contention loop.** When two requests compete for the same slot, the unique constraint rejects one and it tries again for the next slot. Nothing has failed and nothing is unavailable, so it retries at once; a backoff would only make it slower.
+
+The allocator port takes a client reference. A remote allocator can succeed and have its response lost on the way back, and retrying without a reference would allocate a second number; the reference lets the far side recognise the repeat and return the first result. The local allocator ignores it, because it takes its number from a database sequence inside the caller's transaction — if that transaction fails, the number is simply never used and there is nothing to reconcile.
 
 **Account opening is idempotent.** `POST /accounts` honours an `Idempotency-Key` header. The key is claimed with a single Redis `SET NX`, so two requests carrying the same key cannot both proceed; a key whose request has completed replays the original `201` rather than opening a second account. A key reused with a different request body returns `422` rather than the earlier result, because a retry repeats its request and anything else is a client defect.
 
