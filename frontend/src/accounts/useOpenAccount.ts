@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { nanoid } from 'nanoid';
 import { useOpenAccountMutation } from '../api/api';
 
@@ -34,7 +34,7 @@ export function useOpenAccount() {
     }
   }
 
-  function submit(event: FormEvent) {
+  function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = nickname.trim();
     void attempt({

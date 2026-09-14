@@ -1,5 +1,5 @@
 import { Box, Button, Card, Code, Flex, Heading, Text, TextField } from '@radix-ui/themes';
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { useDispatch } from 'react-redux';
 import { api, asProblem, useSignInMutation } from '../api/api';
 import Problem from '../ui/Problem';
@@ -11,7 +11,7 @@ export default function SignIn() {
   const [signIn, { isLoading, error }] = useSignInMutation();
   const dispatch = useDispatch();
 
-  async function submit(event: FormEvent) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
       const result = await signIn({ email, password }).unwrap();
