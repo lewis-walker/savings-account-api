@@ -1,0 +1,15 @@
+# Everything checks out with LF, on every platform.
+#
+# Git for Windows defaults to core.autocrlf=true, which rewrites text files to CRLF
+# on checkout. Almost everything here is then copied into a Linux container, where a
+# shell script carrying \r fails as "bad interpreter: /bin/sh^M". backend/.gitattributes
+# already pins gradlew, which is the file where that is fatal - this makes the guarantee
+# cover the repository rather than resting on one generated file.
+* text=auto eol=lf
+
+# Windows batch files are the exception: they are run by Windows, and want CRLF.
+*.bat text eol=crlf
+
+# Never touched, and never diffed as text.
+*.jar binary
+*.png binary
