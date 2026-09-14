@@ -13,7 +13,6 @@ import com.lewiswalker.savings.integration.nickname.OffensiveNicknameException;
 import com.lewiswalker.savings.platform.observability.CorrelationIdFilter;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -159,12 +158,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException e, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
-        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "validation-failed",
-                "Validation failed", "One or more fields were not acceptable.");
-        problem.setProperty("errors", e.getBindingResult().getFieldErrors().stream()
-                .map(ApiExceptionHandler::describe)
+        return validationFailed(e.getBindingResult().getFieldErrors().stream()
+                .map(FieldFailure::of)
                 .toList());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
     /**
@@ -179,21 +175,25 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
             HandlerMethodValidationException e, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
+        return validationFailed(e.getParameterValidationResults().stream()
+                .flatMap(ApiExceptionHandler::fieldFailures)
+                .toList());
+    }
+
+    private ResponseEntity<Object> validationFailed(List<FieldFailure> failures) {
         ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "validation-failed",
                 "Validation failed", "One or more fields were not acceptable.");
-        problem.setProperty("errors", e.getParameterValidationResults().stream()
-                .flatMap(ApiExceptionHandler::describe)
-                .toList());
+        problem.setProperty("errors", failures);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
-    private static Stream<Map<String, String>> describe(ParameterValidationResult result) {
+    private static Stream<FieldFailure> fieldFailures(ParameterValidationResult result) {
         if (result instanceof ParameterErrors body) {
-            return body.getFieldErrors().stream().map(ApiExceptionHandler::describe);
+            return body.getFieldErrors().stream().map(FieldFailure::of);
         }
+        String parameter = nameOf(result.getMethodParameter());
         return result.getResolvableErrors().stream()
-                .map(error -> Map.of("field", nameOf(result.getMethodParameter()),
-                        "message", String.valueOf(error.getDefaultMessage())));
+                .map(error -> new FieldFailure(parameter, String.valueOf(error.getDefaultMessage())));
     }
 
     /** The header as the caller spelled it, rather than the Java parameter name. */
@@ -236,10 +236,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "This customer is not currently able to open accounts. Please contact us.");
     }
 
-    /** The field and our own message. The rejected value is not reflected back. */
-    private static Map<String, String> describe(FieldError error) {
-        return Map.of("field", error.getField(),
-                "message", String.valueOf(error.getDefaultMessage()));
+    /** One entry of the errors array. The rejected value is not reflected back. */
+    record FieldFailure(String field, String message) {
+
+        static FieldFailure of(FieldError error) {
+            return new FieldFailure(error.getField(), String.valueOf(error.getDefaultMessage()));
+        }
     }
 
     private ProblemDetail problem(HttpStatus status, String type, String title, String detail) {
