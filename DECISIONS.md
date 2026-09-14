@@ -19,13 +19,13 @@ Malformed `Idempotency-Key` headers return `400` with the same error format as i
 
 ## Five-account limit
 
-The database enforces the limit. Each account holds a `slot_no` of 1–5, and a unique index on `(customer_id, slot_no)` covering only rows with status `OPEN` makes each slot exclusive: five slots holding at most one open account each cap the customer at five. A count followed by an insert alone would allow concurrent requests to exceed the limit.
+Each account has a `slot_no` from 1–5. A partial unique index on `(customer_id, slot_no)` for rows with status `OPEN` limits each customer to five open accounts, including under concurrent requests. Closed accounts free their slots for reuse; a closure endpoint is outside scope.
 
-Scoping the index to open accounts keeps the rule correct if accounts can later be closed. An unscoped index over an always-increasing counter also caps at five, but only while nothing leaves the set; closing the fifth account would take the next counter value to six and refuse a customer holding four. Closure itself is out of scope. The status column is here because it is what the constraint counts, not as the start of a lifecycle.
+`AccountRepository.nextFreeSlot` selects the lowest available slot or reports the limit reached before allocating an account number. Its query uses the same `OPEN` predicate as the index.
 
-`AccountRepository.nextFreeSlot` proposes the lowest free slot and is the only thing that reports a full customer. It reads committed rows, so the slot it offers may already be taken by a request that has not committed; the unique index settles that and the caller retries in a new transaction. Each attempt uses `TransactionTemplate` to make that boundary explicit; retries must run outside the transaction aborted by the constraint violation. The finder repeats the index predicate exactly, keeping one definition of an occupied slot, and answers “full” before an account number is allocated.
+Concurrent requests can select the same slot. The unique index rejects one, which retries in a new transaction using `TransactionTemplate`. Each retry needs a new transaction because PostgreSQL aborts the previous one after the constraint violation.
 
-`AccountCapConcurrencyTest` releases sixteen requests simultaneously and checks that exactly five succeed. `AccountSlotReuseTest` runs the update a close endpoint would issue, then checks that the freed slot is reused, that the limit still holds, and that the database refuses a duplicate open slot to a writer bypassing the service.
+`AccountCapConcurrencyTest` submits sixteen simultaneous requests and checks that exactly five succeed. `AccountSlotReuseTest` closes an account directly in the database and verifies slot reuse, continued enforcement of the limit, and rejection of duplicate open slots inserted outside the service.
 
 ## Idempotency
 
