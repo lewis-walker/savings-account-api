@@ -137,9 +137,27 @@ One assertion required adjustment. The check that a cache entry exists immediate
 | Refresh-token rotation and reuse detection | Belongs to the production identity-provider integration. Existing `401` handling provides the integration point. |
 | Circuit breaker | Connection-acquisition timeouts and fail-fast behaviour are implemented; a circuit breaker is the next resilience improvement. |
 | Statement timeouts | Only connection acquisition is bounded. A `statement_timeout` on the database role, or a query timeout, is needed to bound a database that is reachable but blocked. |
+| Automated base-image bumps | Bases are pinned by digest, which needs Renovate or Dependabot raising the bump and a scanner gating the merge. The pin without the bot is half the control; see Container images. |
 | Rate limiting, ETags, CI, and load testing | Outside the assignment requirements. |
 | Core banking adapter | Requires timeouts, a circuit breaker, and reconciliation for allocations whose responses are lost. |
 | Durable audit events | Logger output can be lost when a container terminates. Production requires durable audit recording. |
+
+## Container images
+
+**Bases are pinned by digest, not by tag.** `eclipse-temurin:21-jre` is a floating tag: it moved from Ubuntu Noble to Ubuntu 26.04 with nothing in this repository changing. An image whose claim is that it builds from a clean clone cannot rest on a tag that means something different next month. The pinned digests are manifest lists, so `amd64` and `arm64` both still resolve and the one-command promise holds on either.
+
+**A digest pin only works with a bot behind it.** Pinning stops security patches arriving silently, which is the point, and also stops them arriving at all — a pinned base is a stale base in six months. The complete control is Renovate or Dependabot raising the bump as a pull request, the image scanner gating the merge, and a human approving it. Pinning alone is half the control, and the worse half if nobody says so. Renovate configuration is not included here because CI is out of scope for this assignment; the pin is the part that belongs in the repository either way.
+
+**Temurin rather than a smaller base, deliberately.** Measured against the alternatives, this is the largest option: Temurin on Ubuntu is 366 MB over 140 OS packages, against 208 MB / 73 for the Alpine variant and 202 MB / 40 for distroless. Two reasons it still wins here:
+
+- *Alpine is musl.* Nothing in this service would notice — the PostgreSQL driver is pure Java and Lettuce falls back to NIO — but the APM agents commonly deployed in banks ship glibc-only native agents, and an image that cannot be instrumented is not cheaper.
+- *Distroless has no shell,* so the Compose healthcheck cannot run, and restoring it means shipping a static probe binary from an added build stage: machinery in a Java repository to serve a demo.
+
+The choice of base in a regulated environment is a patching question rather than a size question — who rebuilds the image when a CVE is published, and whether the registry scanner has a policy gate on its origin. Temurin has a named vendor, a quarterly critical-patch cadence, and TCK certification, which is what that question is asking for. A production deployment would more likely use the bank's own hardened base, typically Red Hat UBI where there is a RHEL estate.
+
+**curl is not installed.** It ships in the base image, so the `apt-get install` that was here did nothing but add a layer and a network dependency to the build. It is wanted only for the Compose healthcheck; Kubernetes probes from outside the container and needs nothing inside it. A future digest bump that dropped curl would fail the healthcheck at the bump, which is a loud failure at a reviewed moment rather than a silent one.
+
+**The container does not run as root,** and the JVM is told the cgroup memory limit (`MaxRAMPercentage`) and to die rather than limp on `OutOfMemoryError`.
 
 ## Production considerations
 
