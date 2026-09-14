@@ -1,7 +1,7 @@
 import { asProblem, useListAccountsQuery } from '../api/api';
 import AccountRow from './AccountRow';
-import Card from './Card';
-import Problem from './Problem';
+import Card from '../ui/Card';
+import Problem from '../ui/Problem';
 import styles from './Accounts.module.css';
 import { useOpenAccount } from './useOpenAccount';
 

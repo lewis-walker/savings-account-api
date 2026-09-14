@@ -3,8 +3,8 @@ import { api } from './api/api';
 import { signedOut } from './auth/authSlice';
 import type { RootState } from './store';
 import styles from './App.module.css';
-import SignIn from './components/SignIn';
-import Accounts from './components/Accounts';
+import SignIn from './auth/SignIn';
+import Accounts from './accounts/Accounts';
 
 export default function App() {
   const signedIn = useSelector((state: RootState) => state.auth.accessToken !== null);

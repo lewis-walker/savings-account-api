@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/api';
 import authReducer, { signedIn } from '../auth/authSlice';
-import Accounts from '../components/Accounts';
+import Accounts from './Accounts';
 
 /**
  * The optimistic upsert, which is the only genuinely tricky logic in this app.

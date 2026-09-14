@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useDispatch } from 'react-redux';
 import { api, asProblem, useSignInMutation } from '../api/api';
-import { signedIn } from '../auth/authSlice';
-import Card from './Card';
-import Problem from './Problem';
+import { signedIn } from './authSlice';
+import Card from '../ui/Card';
+import Problem from '../ui/Problem';
 import styles from './SignIn.module.css';
 
 export default function SignIn() {
