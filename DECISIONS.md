@@ -133,6 +133,7 @@ One assertion required adjustment. The check that a cache entry exists immediate
 
 | Item | Rationale or next step |
 |---|---|
+| Amendment and closure | An account is append-only in this scope, so there is no optimistic locking, no `updated_at`, and no update path. Adding one is where those belong. |
 | Refresh-token rotation and reuse detection | Belongs to the production identity-provider integration. Existing `401` handling provides the integration point. |
 | Circuit breaker | Connection-acquisition timeouts and fail-fast behaviour are implemented; a circuit breaker is the next resilience improvement. |
 | Statement timeouts | Only connection acquisition is bounded. A `statement_timeout` on the database role, or a query timeout, is needed to bound a database that is reachable but blocked. |

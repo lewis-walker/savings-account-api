@@ -3,9 +3,7 @@ package com.lewiswalker.savings.account;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -13,10 +11,12 @@ import java.util.UUID;
 /**
  * A savings account.
  *
- * <p>No Lombok here, on purpose. Lombok's generated {@code equals}/{@code hashCode}
- * touch every field, which on a JPA entity drags lazy associations into existence at
- * surprising moments, and its {@code toString} does the same. Identity on an entity
- * should be the identifier and nothing else, which is what this does.
+ * <p>Append-only in this scope: nothing updates an account, so there is no optimistic
+ * locking, no updated_at and no update path. Amendment and closure are deliberately out
+ * of scope; see DECISIONS.md.
+ *
+ * <p>No Lombok: its generated equals/hashCode and toString touch every field, which on a
+ * JPA entity triggers lazy loading at unpredictable moments.
  */
 @Entity
 @Table(name = "account")
@@ -29,7 +29,7 @@ public class Account {
     @Column(name = "account_number", nullable = false, updatable = false, length = 32)
     private String accountNumber;
 
-    /** From the JWT {@code sub} claim. Never accepted from a request body. */
+    /** From the token, never from a request body. */
     @Column(name = "customer_id", nullable = false, updatable = false)
     private UUID customerId;
 
@@ -39,19 +39,12 @@ public class Account {
     @Column(length = 30)
     private String nickname;
 
-    /** 1..5 within a customer. The database caps the series; see V1__account.sql. */
+    /** 1..5 within a customer; the database enforces it. See V1__account.sql. */
     @Column(name = "sequence_no", nullable = false, updatable = false)
     private short sequenceNo;
 
-    @Version
-    @Column(nullable = false)
-    private long version;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
 
     protected Account() {
         // for JPA
@@ -66,12 +59,6 @@ public class Account {
         this.nickname = nickname;
         this.sequenceNo = sequenceNo;
         this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    void touch() {
-        this.updatedAt = Instant.now();
     }
 
     public UUID getId() { return id; }
@@ -80,13 +67,8 @@ public class Account {
     public String getCustomerName() { return customerName; }
     public String getNickname() { return nickname; }
     public short getSequenceNo() { return sequenceNo; }
-    public long getVersion() { return version; }
     public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
 
-    public void rename(String nickname) {
-        this.nickname = nickname;
-    }
 
     @Override
     public boolean equals(Object other) {
@@ -100,15 +82,7 @@ public class Account {
         return Objects.hashCode(id);
     }
 
-    /**
-     * Identifiers only — never attributes.
-     *
-     * <p>An earlier version included the account number, which put it into any log line
-     * that interpolated an Account. That is CWE-532, and in a bank it is a finding, not
-     * a style note. The id is an opaque UUID that means nothing without database
-     * access; the account number, the customer name and the nickname are all things a
-     * log reader should not be handed.
-     */
+    /** Identifiers only. An account number or a name here reaches every log line (CWE-532). */
     @Override
     public String toString() {
         return "Account[id=%s, sequenceNo=%d]".formatted(id, sequenceNo);
