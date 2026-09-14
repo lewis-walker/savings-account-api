@@ -86,6 +86,37 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 **Retries reuse the idempotency key.** A retry after a timeout therefore represents the same account-opening request and cannot consume another account slot.
 
+## Testing
+
+Tests are selected for the failures they would detect rather than for coverage. The suite is 75 backend tests and 3 front-end tests.
+
+**Testcontainers rather than an in-memory database.** The account limit is enforced by PostgreSQL constraints and the caching behaviour depends on Redis. A substitute would exercise different behaviour and pass regardless of whether the real constraints were correct.
+
+**Assertions are chosen so that a plausible incorrect implementation fails.** In several cases the obvious assertion would pass against code that does nothing:
+
+- The concurrency test releases sixteen requests simultaneously through a latch and asserts that exactly five succeed with a contiguous sequence. A sequential test passes against a count-then-insert implementation.
+- The retry test counts invocations. Asserting only that the call eventually succeeds passes when no retry occurs, because the first attempt succeeds when no failure is injected. This test detected a retry proxy that was created but never applied.
+- The optimistic-update test asserts that the row is the same DOM node before and after reconciliation. Asserting only the final state passes when no optimistic update occurs.
+- Account-number validation is checked against a published valid New Zealand account number rather than against the implementation’s own output.
+
+**Dependency failures are tested by removing the dependency.** `CacheOutageTest` stops the Redis container and verifies that accounts can still be opened and read. Database unavailability was verified against the running stack by stopping the PostgreSQL container.
+
+| Test | Failure detected |
+|---|---|
+| `AccountCapConcurrencyTest` | An account limit implemented as a count followed by an insert. |
+| `NzAccountNumberFormatTest` | An incorrect modulus-11 weight table. |
+| `LogHygieneTest` | Customer data reaching logs, including from libraries. |
+| `CacheOutageTest` | Redis becoming a required dependency. |
+| `CacheKillSwitchTest` | A feature flag read once at startup rather than per call. |
+| `RetryPolicyTest` | A retry annotation that has no effect. |
+| `SecurityTest` | Private key material exposed through JWKS; user enumeration at sign-in. |
+| `AuditLogTest` | A refused request leaving no audit record. |
+| `optimistic.test.tsx` | A list row keyed by account ID, remounting on reconciliation. |
+
+**Backend tests are excluded from the image build** because Testcontainers requires a Docker daemon that the build does not have. Front-end tests run during their image build, which requires only Node.
+
+One assertion required adjustment. The check that a cache entry exists immediately after commit was intermittent and now polls briefly. Correctness does not depend on that timing, because a cache miss falls through to the committed row.
+
 ## Out of scope
 
 | Item | Rationale or next step |

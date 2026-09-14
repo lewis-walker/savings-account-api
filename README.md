@@ -92,6 +92,9 @@ cd backend && ./gradlew test     # 75, against real Postgres and Redis via Testc
 cd frontend && npm test          # 3, covering the optimistic update
 ```
 
+What each test is for, and why it is written the way it is:
+[DECISIONS.md](DECISIONS.md#testing).
+
 ## Why things are the way they are
 
 [DECISIONS.md](DECISIONS.md) — including what was deliberately left out, and where this
