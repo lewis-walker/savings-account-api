@@ -6,7 +6,9 @@ This document records assumptions, implementation decisions, and production cons
 
 - **Customer identity comes from the access token.** The API does not accept a customer ID in the request body, preventing callers from opening accounts for other customers.
 - **Customer names come from the Customers API.** Account opening assumes an existing, verified customer record under AML/CFT requirements. The account stores the name as a snapshot for audit purposes; the customer record remains authoritative for the current name. Names are excluded from tokens to avoid exposing them through request-header logging.
-- **Authentication belongs to an external identity provider.** `SecurityConfig` configures the service as a resource server. `TokenController` implements the OAuth 2.0 password grant solely for the demo. This grant is removed in OAuth 2.1, and the controller would be removed in production.
+- **The resource server requires a subject it can read as a customer id.** Customer identity is the `sub` claim, and nothing in Spring Security's default validators requires `sub` to be present, let alone to be a customer id — a correctly signed token from the trusted issuer, with the right audience, can carry an opaque subject or none at all, which is what most identity providers issue. `JwtKeys` validates it during decoding, so such a token is a `401` rather than a request that fails somewhere further in. `SecurityTest` mints tokens that differ from a real one only in the subject, and fails if the check is removed.
+
+**Authentication belongs to an external identity provider.** `SecurityConfig` configures the service as a resource server. `TokenController` implements the OAuth 2.0 password grant solely for the demo. This grant is removed in OAuth 2.1, and the controller would be removed in production.
 - **The service owns one table: accounts.** Customer records and credentials belong to other services.
 
 ## Five-account limit
@@ -68,6 +70,12 @@ The allocator port takes a client reference. A remote allocator can succeed and 
 
 This matters because of the account limit. A response lost in transit, followed by a retry, would otherwise consume one of the customer's five slots with no way for them to tell.
 
+**An account resolved for the wrong customer is an incident, not a 404.** The two ownership checks in `AccountController` look alike and mean opposite things. On `GET /accounts/{id}` the caller chose the id, so a mismatch is expected — someone probing, or a stale link — and the answer is `404`, quietly, because `403` would confirm the account exists. On the opening path the id came from an idempotency entry namespaced by the customer, or from the write that had just created it, so a mismatch cannot happen unless that namespacing or that write is wrong. It is refused with a `500` that says nothing specific, and recorded on the audit logger at error with both customer ids and the account id — without the actual owner, the line reports that an invariant broke and gives nobody a way to find out how. `IdempotencyTest` forces the condition through the store and fails if the check is removed, because a defence nothing exercises is a comment.
+
+**`IdempotencyStore.once` is the only way in, and the primitives are closed.** Claim, perform, then complete or release is an order a caller can get wrong, and getting it wrong opens the second account this exists to prevent. Those three are package-private, so the protocol cannot be reassembled elsewhere, and the record it keeps never leaves the package. The endpoint supplies only what is irreducibly its own: how to do the work, and how to turn the stored id back into an answer. Both the first response and a replayed one are built by that same function, so they cannot drift apart; the cost is one read of a row the request just committed, which the write-through cache has already warmed.
+
+A filter was considered and rejected. It would have to buffer and replay the response body, where this stores an account id and rebuilds the answer — a customer name sitting in Redis for the retention period is exactly what the log-hygiene work avoids elsewhere. It sees raw bytes, so the fingerprint would cover whitespace and a reformatted retry would read as a different request. And it would need ordering after authentication to scope keys by customer, adding a second ordering constraint to a filter chain that already has a delicate one.
+
 **The idempotency store fails closed, and the cache does not.** A cache failure is swallowed because the correct answer is still available from PostgreSQL. The idempotency store is a correctness control: degrading it silently would reinstate the duplicate-account defect at the moment it is most likely to occur, because a caller retries when something is already wrong. The same Redis instance therefore has two failure policies. Moving the store to PostgreSQL and into the opening transaction is the alternative; making the control best-effort is not.
 
 The header is optional so the API can be exercised without it. A production API would require it on unsafe methods, because the protection is worth what the least careful client does.
@@ -97,6 +105,8 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 **Optimistic rows use the client reference as their React key.** Server-generated account IDs are unavailable when a row is first rendered. Reconciliation merges server values into the existing row while preserving its key. Account creation does not invalidate the list, avoiding a refetch that would rebuild rows and reintroduce flicker.
 
 **Retries reuse the idempotency key.** A retry after a timeout therefore represents the same account-opening request and cannot consume another account slot.
+
+**A malformed `Idempotency-Key` is a validation failure, and is answered as one.** It is a constraint on the header parameter, so it produces the same `400` document as a rejected body field, naming `Idempotency-Key`. It previously threw the key-reused exception, which answered `422` telling a caller who had never used the key that it was already used — advice that cannot be followed, because a replacement generated the same way fails identically. Note that one constraint anywhere on a handler method routes that method's whole validation through `HandlerMethodValidationException` rather than `MethodArgumentNotValidException`; `ApiExceptionHandler` describes both parameter and body errors for that reason.
 
 ## Testing
 
@@ -128,6 +138,12 @@ Tests are selected for the failures they would detect rather than for coverage. 
 **Backend tests are excluded from the image build** because Testcontainers requires a Docker daemon that the build does not have. Front-end tests run during their image build, which requires only Node.
 
 One assertion required adjustment. The check that a cache entry exists immediately after commit was intermittent and now polls briefly. Correctness does not depend on that timing, because a cache miss falls through to the committed row.
+
+## Layout
+
+**Three top-level packages, so the brief is visible from the tree.** `account` is what the assignment asks for. `integration` holds the systems a bank owns elsewhere — account number allocation, the customer master, feature flags, content moderation, log aggregation — each an interface with a stand-in behind it. `platform` holds the machinery every endpoint uses: security, caching, idempotency, observability, auditing, error handling.
+
+**Each port sits with its adapter rather than in the domain.** `CustomerDirectory` is named for the customer master, not for anything in the account model, and keeping it beside `DemoCustomerDirectory` puts the seam and what is behind it in one place. The consequence is that `account` imports from `integration`, which a strict hexagonal reading would object to. The answer is that dependency inversion is satisfied by the domain depending on an interface whose implementation it cannot see; the directory a file sits in is not what inverts it. Enforcing the boundary rather than describing it would mean Spring Modulith or an ArchUnit rule, which is a larger claim than a service this size needs.
 
 ## Out of scope
 

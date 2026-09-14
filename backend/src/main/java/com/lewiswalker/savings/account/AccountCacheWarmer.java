@@ -1,7 +1,7 @@
 package com.lewiswalker.savings.account;
 
-import com.lewiswalker.savings.cache.CacheConfig;
-import com.lewiswalker.savings.flags.FeatureFlags;
+import com.lewiswalker.savings.platform.cache.CacheConfig;
+import com.lewiswalker.savings.integration.flags.FeatureFlags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;

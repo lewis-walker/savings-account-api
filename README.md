@@ -88,10 +88,23 @@ nginx serves each app and proxies its API calls on the same origin, so there is 
 configuration anywhere. It also mints the correlation id, because that is the gateway's
 job. Operational surfaces live on their own port.
 
-Three integration points are behind interfaces, because in a real bank none of them are
-local: **account number allocation** (the core banking platform), the **customer
-directory** (the customer master), and **feature flags** (LaunchDarkly). Each ships with
-a demo adapter and a note on what the real one needs.
+The package layout says which code is the brief and which is everything else:
+
+```
+account/        the savings account: opening it, the five-account cap, reading it back
+  api/          the HTTP endpoints and their request and response types
+integration/    systems a bank owns elsewhere, each an interface plus a stand-in
+  numbering/    account number allocation, really a core banking call
+  customer/     the customer master, consulted for identity and due diligence
+  flags/        LaunchDarkly
+  nickname/     content moderation
+  logstream/    a log aggregator
+platform/       machinery every endpoint uses: security, caching, idempotency,
+                observability, auditing, error handling
+```
+
+Each `integration/` package holds the interface and the stand-in together, so the seam
+and what is currently behind it are in one place, with a note on what the real one needs.
 
 ## Tests
 

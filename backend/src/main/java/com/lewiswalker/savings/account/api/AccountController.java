@@ -3,14 +3,15 @@ package com.lewiswalker.savings.account.api;
 import com.lewiswalker.savings.account.AccountView;
 import com.lewiswalker.savings.account.AccountService;
 import com.lewiswalker.savings.account.AccountNotFoundException;
-import com.lewiswalker.savings.idempotency.IdempotencyExceptions;
-import com.lewiswalker.savings.idempotency.IdempotencyRecord;
-import com.lewiswalker.savings.idempotency.IdempotencyStore;
-import com.lewiswalker.savings.idempotency.RequestFingerprint;
+import com.lewiswalker.savings.account.OwnershipMismatchException;
+import com.lewiswalker.savings.platform.audit.AuditLog;
+import com.lewiswalker.savings.platform.idempotency.IdempotencyKey;
+import com.lewiswalker.savings.platform.idempotency.IdempotencyStore;
+import com.lewiswalker.savings.platform.idempotency.RequestFingerprint;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,10 +32,13 @@ public class AccountController {
 
     private final AccountService accounts;
     private final IdempotencyStore idempotency;
+    private final AuditLog auditLog;
 
-    public AccountController(AccountService accounts, IdempotencyStore idempotency) {
+    public AccountController(AccountService accounts, IdempotencyStore idempotency,
+                             AuditLog auditLog) {
         this.accounts = accounts;
         this.idempotency = idempotency;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -46,57 +50,33 @@ public class AccountController {
     @PostMapping
     public ResponseEntity<AccountResponse> open(
             @AuthenticationPrincipal Jwt caller,
-            @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String idempotencyKey,
+            @RequestHeader(value = IDEMPOTENCY_HEADER, required = false)
+            @IdempotencyKey String idempotencyKey,
             @Valid @RequestBody OpenAccountRequest request) {
-
         UUID customerId = customerId(caller);
-
-        if (idempotencyKey == null) {
-            return created(accounts.open(customerId, request.nickname()));
-        }
-        if (!IdempotencyStore.isAcceptable(idempotencyKey)) {
-            // Refused, not ignored: silently dropping it leaves the caller believing they
-            // have protection they do not have.
-            throw new IdempotencyExceptions.KeyReused(
-                    "malformed; expected 8-128 characters of [A-Za-z0-9_-]");
-        }
-
-        String fingerprint = RequestFingerprint.of(customerId.toString(), request.nickname());
-        Optional<IdempotencyRecord> existing =
-                idempotency.claim(customerId, idempotencyKey, fingerprint);
-
-        if (existing.isPresent()) {
-            return replay(existing.get(), idempotencyKey, fingerprint, customerId);
-        }
-
-        AccountView account;
-        try {
-            account = accounts.open(customerId, request.nickname());
-        } catch (RuntimeException e) {
-            // Nothing committed, so a genuine retry should not be locked out.
-            idempotency.release(customerId, idempotencyKey);
-            throw e;
-        }
-        idempotency.complete(customerId, idempotencyKey, fingerprint, account.id());
-        return created(account);
+        return created(idempotency.performOnce(customerId, idempotencyKey,
+                RequestFingerprint.of(customerId.toString(), request.nickname()),
+                () -> accounts.open(customerId, request.nickname()).id(),
+                id -> requireOwnedAccount(customerId, id)));
     }
 
-    /** Rebuilt from the stored account id, so the record stays an identifier. */
-    private ResponseEntity<AccountResponse> replay(IdempotencyRecord record, String key,
-                                                   String fingerprint, UUID customerId) {
-        if (!record.matches(fingerprint)) {
-            throw new IdempotencyExceptions.KeyReused(key);
+    /**
+     * The account behind an id this endpoint produced or replayed.
+     *
+     * <p>Deliberately not the quiet filter that {@link #get} uses. There, a mismatch is a
+     * caller asking about an account that is not theirs, which is expected and answered
+     * with a 404. Here the id came from an idempotency entry namespaced by this customer,
+     * or from the write that had just created it, so a mismatch is an invariant failing:
+     * recorded, and refused rather than answered.
+     */
+    private AccountView requireOwnedAccount(UUID customerId, UUID accountId) {
+        AccountView account = accounts.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+        if (!account.customerId().equals(customerId)) {
+            auditLog.ownershipMismatch(customerId, account.customerId(), accountId);
+            throw new OwnershipMismatchException(accountId);
         }
-        if (record.state() == IdempotencyRecord.State.IN_PROGRESS) {
-            throw new IdempotencyExceptions.InProgress(key);
-        }
-        return accounts.findById(UUID.fromString(record.accountId()))
-                .filter(account -> account.customerId().equals(customerId))
-                .map(account -> ResponseEntity
-                        .created(URI.create("/accounts/" + account.id()))
-                        .body(AccountResponse.of(account)))
-                // Unreachable - nothing deletes accounts - but better than replaying a 201.
-                .orElseThrow(() -> new AccountNotFoundException(UUID.fromString(record.accountId())));
+        return account;
     }
 
     private static ResponseEntity<AccountResponse> created(AccountView account) {
@@ -124,6 +104,6 @@ public class AccountController {
 
     /** The only place customer identity comes from. */
     private static UUID customerId(Jwt caller) {
-        return UUID.fromString(caller.getSubject());
+        return UUID.fromString(Objects.requireNonNull(caller.getSubject()));
     }
 }

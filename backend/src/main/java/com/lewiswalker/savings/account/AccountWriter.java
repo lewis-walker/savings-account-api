@@ -1,6 +1,6 @@
 package com.lewiswalker.savings.account;
 
-import com.lewiswalker.savings.account.numbering.AccountNumberAllocator;
+import com.lewiswalker.savings.integration.numbering.AccountNumberAllocator;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;

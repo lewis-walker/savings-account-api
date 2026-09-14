@@ -1,0 +1,198 @@
+package com.lewiswalker.savings.platform.security;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+import com.lewiswalker.savings.TestcontainersConfiguration;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
+class SecurityTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private JwtDecoder jwtDecoder;
+
+    @Autowired
+    private JwtEncoder jwtEncoder;
+
+    @Autowired
+    private SecurityProperties properties;
+
+    @Test
+    @DisplayName("an unmapped path is refused rather than reported - default deny")
+    void everythingIsAuthenticatedByDefault() throws Exception {
+        // A path with no controller at all answers 401 rather than 404, because the
+        // security chain runs before dispatch and the rule is deny by default. Pointed at
+        // a genuinely unmapped path: this used to hit /accounts, which acquired a
+        // controller in the commit after the test was written, so it stopped testing the
+        // property its name claims and started duplicating unauthenticatedIsRefused.
+        mockMvc.perform(get("/no-such-endpoint")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("valid credentials mint a token whose subject is the customer id")
+    void mintsAToken() throws Exception {
+        Jwt decoded = jwtDecoder.decode(tokenFor("ada@example.test", "demo-password"));
+
+        assertThat(decoded.getSubject()).isEqualTo("11111111-1111-4111-8111-111111111111");
+        assertThat(decoded.getAudience()).contains("savings-account-api");
+        assertThat(decoded.getIssuer().toString()).isEqualTo("https://savings-account-api.local");
+        assertThat(decoded.getClaimAsString("scope")).contains("accounts:read");
+    }
+
+    @Test
+    @DisplayName("a token this service cannot read a customer id from is refused")
+    void subjectMustBeACustomerId() throws Exception {
+        // Correctly signed, right issuer, right audience - and useless, because the
+        // subject is where the customer comes from. An identity provider that issues
+        // opaque or email subjects produces exactly these.
+        for (String subject : new String[] {null, "ada@example.test", "not-a-uuid", "1-1-1-1-1"}) {
+            mockMvc.perform(get("/accounts")
+                            .header("Authorization", "Bearer " + signedWithSubject(subject)))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    /** A token that differs from a real one only in its subject. */
+    private String signedWithSubject(String subject) {
+        Instant now = Instant.now();
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
+                .issuer(properties.issuer())
+                .audience(List.of(properties.audience()))
+                .issuedAt(now)
+                .expiresAt(now.plus(properties.accessTokenTtl()))
+                .id(UUID.randomUUID().toString());
+        if (subject != null) {
+            claims.subject(subject);
+        }
+        return jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(SignatureAlgorithm.RS256).build(), claims.build())).getTokenValue();
+    }
+
+    @Test
+    @DisplayName("the token carries no personal data")
+    void tokenCarriesNoPii() throws Exception {
+        Jwt decoded = jwtDecoder.decode(tokenFor("ada@example.test", "demo-password"));
+
+        // Tokens ride in a header on every request and headers get logged by proxies.
+        // A name or email claim would quietly undo the log hygiene work; the name
+        // comes from the customer service instead.
+        String claims = decoded.getClaims().toString();
+        assertThat(claims).doesNotContain("Ada Lovelace");
+        assertThat(claims).doesNotContain("ada@example.test");
+    }
+
+    @Test
+    @DisplayName("a wrong password and an unknown email fail identically")
+    void badCredentialsAreIndistinguishable() throws Exception {
+        MvcResult wrongPassword = attempt("ada@example.test", "wrong");
+        MvcResult unknownEmail = attempt("nobody@example.test", "demo-password");
+
+        // Distinguishable answers turn a login endpoint into a way of finding out who
+        // banks here.
+        assertThat(wrongPassword.getResponse().getStatus()).isEqualTo(401);
+        assertThat(unknownEmail.getResponse().getStatus()).isEqualTo(401);
+
+        // The BODY, not getErrorMessage(). ResponseStatusException is rendered as a
+        // problem document rather than through sendError, so getErrorMessage() is null on
+        // both responses and comparing them asserted null == null - which passes happily
+        // against a controller that says "no such email" and "wrong password".
+        //
+        // Everything except the correlation id, which is per-request by design and so is
+        // the one field that must differ.
+        assertThat(withoutCorrelationId(unknownEmail.getResponse().getContentAsString()))
+                .isEqualTo(withoutCorrelationId(wrongPassword.getResponse().getContentAsString()));
+    }
+
+    @Test
+    @DisplayName("a failure the base handler produces still carries the reference")
+    void inheritedProblemDocumentsCarryTheCorrelationId() throws Exception {
+        // The 401 here is a ResponseStatusException, rendered by the inherited
+        // ResponseEntityExceptionHandler rather than by this application's problem()
+        // helper - so it used to come back with no correlationId at all. It is also the
+        // first error most people trigger, and the README tells them to search for the
+        // reference it was not carrying.
+        String body = mockMvc.perform(post("/auth/token")
+                        .header("X-Correlation-Id", "reference-check-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ada@example.test\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains("reference-check-001");
+    }
+
+    @Test
+    @DisplayName("the JWKS endpoint publishes the public key and only the public key")
+    void jwksLeaksNoPrivateMaterial() throws Exception {
+        String body = mockMvc.perform(get("/.well-known/jwks.json"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains("RSA");
+        assertThat(body).contains("kid");
+        // RSA private material rides in d, p, q, dp, dq and qi. Their absence is the
+        // entire contract of this endpoint, so every one of them is asserted rather than
+        // assumed - and dq is listed explicitly, because doesNotContain("\"q\":") does
+        // not cover it.
+        assertThat(body).doesNotContain("\"d\":");
+        assertThat(body).doesNotContain("\"p\":");
+        assertThat(body).doesNotContain("\"q\":");
+        assertThat(body).doesNotContain("\"dp\":");
+        assertThat(body).doesNotContain("\"dq\":");
+        assertThat(body).doesNotContain("\"qi\":");
+    }
+
+    @Test
+    @DisplayName("a malformed token is rejected")
+    void garbageTokenIsRejected() throws Exception {
+        mockMvc.perform(get("/accounts").header("Authorization", "Bearer not.a.token"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /** The problem document minus the one field that is supposed to differ per request. */
+    private String withoutCorrelationId(String body) {
+        ObjectNode node = (ObjectNode) new ObjectMapper().readTree(body);
+        node.remove("correlationId");
+        return node.toString();
+    }
+
+    private MvcResult attempt(String email, String password) throws Exception {
+        return mockMvc.perform(post("/auth/token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password)))
+                .andReturn();
+    }
+
+    private String tokenFor(String email, String password) throws Exception {
+        String body = attempt(email, password).getResponse().getContentAsString();
+        return new ObjectMapper().readTree(body).get("access_token").asText();
+    }
+}
