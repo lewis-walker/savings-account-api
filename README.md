@@ -126,7 +126,7 @@ cd frontend && npm test          # covers the optimistic update
 ```
 
 What each test is for, and why it is written the way it is:
-[DECISIONS.md](DECISIONS.md#testing).
+[DECISIONS.md](DECISIONS.md#tests-and-running-the-demo).
 
 ## Why things are the way they are
 
