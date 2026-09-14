@@ -18,9 +18,9 @@ public class AuditLog {
 
     private static final Logger audit = LoggerFactory.getLogger("audit");
 
-    public void accountOpened(UUID customerId, UUID accountId, short sequenceNo) {
-        audit.info("event=account.opened customer={} account={} holdings={}",
-                customerId, accountId, sequenceNo);
+    public void accountOpened(UUID customerId, UUID accountId, short slotNo) {
+        audit.info("event=account.opened customer={} account={} slot={}",
+                customerId, accountId, slotNo);
     }
 
     /**

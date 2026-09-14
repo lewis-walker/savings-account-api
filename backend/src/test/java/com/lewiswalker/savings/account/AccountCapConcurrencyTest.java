@@ -87,9 +87,9 @@ class AccountCapConcurrencyTest {
         assertThat(opened.get()).isEqualTo(AccountService.ACCOUNTS_PER_CUSTOMER);
         assertThat(refused.get()).isEqualTo(CONCURRENT_REQUESTS - AccountService.ACCOUNTS_PER_CUSTOMER);
 
-        List<Account> persisted = repository.findByCustomerIdOrderBySequenceNo(customerId);
+        List<Account> persisted = repository.findByCustomerIdOrderBySlotNo(customerId);
         assertThat(persisted).hasSize(AccountService.ACCOUNTS_PER_CUSTOMER);
-        assertThat(persisted).extracting(Account::getSequenceNo)
+        assertThat(persisted).extracting(Account::getSlotNo)
                 .as("the 1..5 series is dense, with no gaps burned by lost races")
                 .containsExactly((short) 1, (short) 2, (short) 3, (short) 4, (short) 5);
         assertThat(persisted).extracting(Account::getAccountNumber)
@@ -105,7 +105,7 @@ class AccountCapConcurrencyTest {
             accountService.open(customerId, null);
         }
 
-        assertThat(repository.findByCustomerIdOrderBySequenceNo(customerId)).hasSize(5);
+        assertThat(repository.findByCustomerIdOrderBySlotNo(customerId)).hasSize(5);
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 AccountCapReachedException.class,
@@ -123,7 +123,7 @@ class AccountCapConcurrencyTest {
 
         AccountView other = accountService.open(second, null);
 
-        assertThat(other.sequenceNo()).isEqualTo((short) 1);
-        assertThat(repository.findByCustomerIdOrderBySequenceNo(second)).hasSize(1);
+        assertThat(other.slotNo()).isEqualTo((short) 1);
+        assertThat(repository.findByCustomerIdOrderBySlotNo(second)).hasSize(1);
     }
 }

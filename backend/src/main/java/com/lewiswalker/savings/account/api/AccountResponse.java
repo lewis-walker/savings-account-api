@@ -16,8 +16,11 @@ public record AccountResponse(
 
         /**
          * What to call the account on screen. The nickname where there is one, otherwise a
-         * name built from the customer's own account sequence, so their five accounts are
-         * distinguishable rather than five rows all reading the same.
+         * name built from the account's slot, so their five accounts are distinguishable
+         * rather than five rows all reading the same.
+         *
+         * <p>The slot is unique among a customer's open accounts, which is the set in
+         * front of them, so no two rows on screen share a name.
          *
          * <p>Derived, never stored: nickname stays the customer's word and this stays
          * ours, which keeps a caller able to tell them apart. Computed here so every
@@ -35,7 +38,7 @@ public record AccountResponse(
                 account.nickname(),
                 account.nickname() != null
                         ? account.nickname()
-                        : "Savings account " + account.sequenceNo(),
+                        : "Savings account " + account.slotNo(),
                 account.openedAt());
     }
 }

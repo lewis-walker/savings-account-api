@@ -2,6 +2,8 @@ package com.lewiswalker.savings.account;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -35,9 +37,24 @@ public class Account {
     @Column(length = 30)
     private String nickname;
 
-    /** 1..5 within a customer; the database enforces it. See V1__account.sql. */
-    @Column(name = "sequence_no", nullable = false, updatable = false)
-    private short sequenceNo;
+    /**
+     * Which of the customer's five slots this account holds, for as long as it is
+     * {@link AccountStatus#OPEN}. The database enforces both halves of that; see
+     * V1__account.sql.
+     *
+     * <p>A slot, not a running count: it says where the account sits among the
+     * customer's open accounts, not how many they have ever had.
+     */
+    @Column(name = "slot_no", nullable = false, updatable = false)
+    private short slotNo;
+
+    /**
+     * Stored as the enum name, so the column reads the same as the code and the
+     * partial index's {@code where status = 'OPEN'} matches it.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private AccountStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -46,14 +63,16 @@ public class Account {
         // for JPA
     }
 
+    /** Opens at {@link AccountStatus#OPEN}, which is the only status this service assigns. */
     public Account(UUID id, String accountNumber, UUID customerId, String customerName,
-                   String nickname, short sequenceNo, Instant now) {
+                   String nickname, short slotNo, Instant now) {
         this.id = id;
         this.accountNumber = accountNumber;
         this.customerId = customerId;
         this.customerName = customerName;
         this.nickname = nickname;
-        this.sequenceNo = sequenceNo;
+        this.slotNo = slotNo;
+        this.status = AccountStatus.OPEN;
         this.createdAt = now;
     }
 
@@ -62,7 +81,8 @@ public class Account {
     public UUID getCustomerId() { return customerId; }
     public String getCustomerName() { return customerName; }
     public String getNickname() { return nickname; }
-    public short getSequenceNo() { return sequenceNo; }
+    public short getSlotNo() { return slotNo; }
+    public AccountStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
 
 
@@ -81,6 +101,6 @@ public class Account {
     /** Identifiers only. An account number or a name here reaches every log line (CWE-532). */
     @Override
     public String toString() {
-        return "Account[id=%s, sequenceNo=%d]".formatted(id, sequenceNo);
+        return "Account[id=%s, slotNo=%d]".formatted(id, slotNo);
     }
 }

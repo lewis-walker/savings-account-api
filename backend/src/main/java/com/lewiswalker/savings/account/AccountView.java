@@ -7,7 +7,7 @@ import java.util.UUID;
  * An immutable snapshot, and the only form in which an account leaves
  * {@link AccountService}.
  *
- * <p>Carries {@code customerId} and {@code sequenceNo}, which {@link
+ * <p>Carries {@code customerId} and {@code slotNo}, which {@link
  * com.lewiswalker.savings.account.api.AccountResponse} does not.
  */
 public record AccountView(
@@ -16,7 +16,7 @@ public record AccountView(
         UUID customerId,
         String customerName,
         String nickname,
-        short sequenceNo,
+        short slotNo,
         Instant openedAt) {
 
     public static AccountView of(Account account) {
@@ -26,7 +26,7 @@ public record AccountView(
                 account.getCustomerId(),
                 account.getCustomerName(),
                 account.getNickname(),
-                account.getSequenceNo(),
+                account.getSlotNo(),
                 account.getCreatedAt());
     }
 }

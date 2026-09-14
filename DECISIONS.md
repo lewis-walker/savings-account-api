@@ -11,7 +11,7 @@ Notes on the main choices and limitations in this assessment.
 
 ## Validation and identifiers
 
-Nicknames are optional. Responses include a derived `displayName`: the nickname when supplied, otherwise `Savings account <n>`, using the customer’s account sequence. The fallback is not stored as a nickname.
+Nicknames are optional. Responses include a derived `displayName`: the nickname when supplied, otherwise `Savings account <n>`, using the account’s slot number. The fallback is not stored as a nickname.
 
 Account IDs use UUIDv4 to avoid enumerable URL identifiers. Account numbers are sequential and use the New Zealand format, `BB-bbbb-AAAAAAA-SSS`, with a modulus-11 check. Bank code 99 is deliberately unregistered; these are demonstration numbers.
 
@@ -19,11 +19,13 @@ Malformed `Idempotency-Key` headers return `400` with the same error format as i
 
 ## Five-account limit
 
-The database enforces the limit using a per-customer `sequence_no`, constrained to 1–5 and unique within each customer. A count followed by an insert alone would allow concurrent requests to exceed the limit.
+The database enforces the limit. Each account holds a `slot_no` of 1–5, and a unique index on `(customer_id, slot_no)` covering only rows with status `OPEN` makes each slot exclusive: five slots holding at most one open account each cap the customer at five. A count followed by an insert alone would allow concurrent requests to exceed the limit.
 
-Requests competing for the same slot retry in a new transaction. Each attempt uses `TransactionTemplate` to make that boundary explicit; retries must run outside the transaction aborted by the constraint violation. The violated constraint determines whether to retry or reject.
+Scoping the index to open accounts keeps the rule correct if accounts can later be closed. An unscoped index over an always-increasing counter also caps at five, but only while nothing leaves the set; closing the fifth account would take the next counter value to six and refuse a customer holding four. Closure itself is out of scope. The status column is here because it is what the constraint counts, not as the start of a lifecycle.
 
-`AccountCapConcurrencyTest` releases sixteen requests simultaneously and checks that exactly five succeed.
+`AccountRepository.nextFreeSlot` proposes the lowest free slot and is the only thing that reports a full customer. It reads committed rows, so the slot it offers may already be taken by a request that has not committed; the unique index settles that and the caller retries in a new transaction. Each attempt uses `TransactionTemplate` to make that boundary explicit; retries must run outside the transaction aborted by the constraint violation. The finder repeats the index predicate exactly, keeping one definition of an occupied slot, and answers “full” before an account number is allocated.
+
+`AccountCapConcurrencyTest` releases sixteen requests simultaneously and checks that exactly five succeed. `AccountSlotReuseTest` runs the update a close endpoint would issue, then checks that the freed slot is reused, that the limit still holds, and that the database refuses a duplicate open slot to a writer bypassing the service.
 
 ## Idempotency
 

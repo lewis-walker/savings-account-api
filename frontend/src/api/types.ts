@@ -5,7 +5,7 @@ export type Account = {
   customerName: string;
   /** What the customer called it, or null if they did not name it. */
   nickname: string | null;
-  /** What to show. The nickname, or one the server built from their account sequence. */
+  /** What to show. The nickname, or one the server built from the account's slot. */
   displayName: string;
   openedAt: string;
 }

@@ -25,7 +25,7 @@ public class AccountService {
     public static final int ACCOUNTS_PER_CUSTOMER = 5;
 
     // Failing this many times means every slot is gone.
-    private static final int MAX_SEQUENCE_NUMBER_FAILS = ACCOUNTS_PER_CUSTOMER;
+    private static final int MAX_SLOT_FAILS = ACCOUNTS_PER_CUSTOMER;
 
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
 
@@ -91,25 +91,25 @@ public class AccountService {
         // same allocation.
         String reference = clientReference != null ? clientReference : UUID.randomUUID().toString();
 
-        for (int attempt = 1; attempt <= MAX_SEQUENCE_NUMBER_FAILS; attempt++) {
+        for (int attempt = 1; attempt <= MAX_SLOT_FAILS; attempt++) {
             try {
                 AccountView opened = transaction.execute(status ->
                         AccountView.of(writer.attemptOpen(customerId, customer.fullName(),
                                 nickname, ACCOUNTS_PER_CUSTOMER, reference)));
 
                 // execute() has returned, so the account is committed.
-                auditLog.accountOpened(customerId, opened.id(), opened.sequenceNo());
+                auditLog.accountOpened(customerId, opened.id(), opened.slotNo());
                 cacheWarmer.warm(opened);
                 return opened;
             } catch (AccountCapReachedException e) {
                 throw accountCapReached(customerId);
-            } catch (SequenceContendedException e) {
-                log.debug("sequence contended for customer {}, attempt {} of {}",
-                        customerId, attempt, MAX_SEQUENCE_NUMBER_FAILS);
+            } catch (SlotContendedException e) {
+                log.debug("slot contended for customer {}, attempt {} of {}",
+                        customerId, attempt, MAX_SLOT_FAILS);
             }
         }
         log.warn("gave up opening an account for customer {} after {} contended attempts",
-                customerId, MAX_SEQUENCE_NUMBER_FAILS);
+                customerId, MAX_SLOT_FAILS);
         throw accountCapReached(customerId);
     }
 
@@ -136,7 +136,7 @@ public class AccountService {
     /** Not cached: a per-customer list is invalidated by any opening. */
     @Transactional(readOnly = true)
     public List<AccountView> findForCustomer(UUID customerId) {
-        return repository.findByCustomerIdOrderBySequenceNo(customerId).stream()
+        return repository.findByCustomerIdOrderBySlotNo(customerId).stream()
                 .map(AccountView::of)
                 .toList();
     }
