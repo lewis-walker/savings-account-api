@@ -3,6 +3,8 @@ package com.lewiswalker.savings.account.api;
 import com.lewiswalker.savings.account.AccountView;
 import com.lewiswalker.savings.account.AccountService;
 import com.lewiswalker.savings.account.AccountNotFoundException;
+import com.lewiswalker.savings.account.OwnershipMismatchException;
+import com.lewiswalker.savings.audit.AuditLog;
 import com.lewiswalker.savings.idempotency.IdempotencyKey;
 import com.lewiswalker.savings.idempotency.IdempotencyStore;
 import com.lewiswalker.savings.idempotency.RequestFingerprint;
@@ -29,10 +31,13 @@ public class AccountController {
 
     private final AccountService accounts;
     private final IdempotencyStore idempotency;
+    private final AuditLog auditLog;
 
-    public AccountController(AccountService accounts, IdempotencyStore idempotency) {
+    public AccountController(AccountService accounts, IdempotencyStore idempotency,
+                             AuditLog auditLog) {
         this.accounts = accounts;
         this.idempotency = idempotency;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -51,10 +56,26 @@ public class AccountController {
         return created(idempotency.once(customerId, idempotencyKey,
                 RequestFingerprint.of(customerId.toString(), request.nickname()),
                 () -> accounts.open(customerId, request.nickname()).id(),
-                id -> accounts.findById(id)
-                        .filter(account -> account.customerId().equals(customerId))
-                        // Unreachable - nothing deletes accounts - but better than replaying a 201.
-                        .orElseThrow(() -> new AccountNotFoundException(id))));
+                id -> ownedBy(customerId, id)));
+    }
+
+    /**
+     * The account behind an id this endpoint produced or replayed.
+     *
+     * <p>Deliberately not the quiet filter that {@link #get} uses. There, a mismatch is a
+     * caller asking about an account that is not theirs, which is expected and answered
+     * with a 404. Here the id came from an idempotency entry namespaced by this customer,
+     * or from the write that had just created it, so a mismatch is an invariant failing:
+     * recorded, and refused rather than answered.
+     */
+    private AccountView ownedBy(UUID customerId, UUID accountId) {
+        AccountView account = accounts.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+        if (!account.customerId().equals(customerId)) {
+            auditLog.ownershipMismatch(customerId, account.customerId(), accountId);
+            throw new OwnershipMismatchException(accountId);
+        }
+        return account;
     }
 
     private static ResponseEntity<AccountResponse> created(AccountView account) {

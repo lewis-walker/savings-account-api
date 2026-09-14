@@ -2,6 +2,7 @@ package com.lewiswalker.savings.web;
 
 import com.lewiswalker.savings.account.AccountCapReachedException;
 import com.lewiswalker.savings.account.AccountNotFoundException;
+import com.lewiswalker.savings.account.OwnershipMismatchException;
 import com.lewiswalker.savings.account.ConstraintNames;
 import com.lewiswalker.savings.account.numbering.AccountNumberAllocationException;
 import com.lewiswalker.savings.customer.CustomerDirectoryUnavailableException;
@@ -77,6 +78,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         // Same answer as an unverified customer, so the two cannot be told apart from
         // outside. AccountService has already recorded it.
         return cannotOpenAccount();
+    }
+
+    @ExceptionHandler(OwnershipMismatchException.class)
+    ProblemDetail ownershipMismatch(OwnershipMismatchException e) {
+        // Nothing specific to the caller: they did nothing wrong, and the detail would
+        // confirm that an account they cannot see exists. AuditLog has the particulars.
+        log.error("ownership invariant failed", e);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "request-failed",
+                "Request failed", "Something went wrong. Please try again later.");
     }
 
     @ExceptionHandler(IdempotencyExceptions.KeyReused.class)

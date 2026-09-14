@@ -24,6 +24,18 @@ public class AuditLog {
     }
 
     /**
+     * An account resolved for a customer who does not own it.
+     *
+     * <p>At error, unlike the rest of this class: the others record things that happen,
+     * this records something that cannot. Both ids, because without the actual owner the
+     * line says an invariant broke and gives nobody a way to find out how.
+     */
+    public void ownershipMismatch(UUID expectedCustomerId, UUID actualCustomerId, UUID accountId) {
+        audit.error("event=account.ownership-mismatch expected-customer={} actual-customer={} account={}",
+                expectedCustomerId, actualCustomerId, accountId);
+    }
+
+    /**
      * An opening that was refused, and why.
      *
      * @param reason a stable code, not a sentence. Messages get reworded; anything

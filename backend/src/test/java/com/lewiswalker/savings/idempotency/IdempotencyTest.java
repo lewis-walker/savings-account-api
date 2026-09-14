@@ -1,6 +1,11 @@
 package com.lewiswalker.savings.idempotency;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.slf4j.LoggerFactory;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -45,6 +50,9 @@ import tools.jackson.databind.ObjectMapper;
 class IdempotencyTest {
 
     private static final String ADA = "ada@example.test";
+    private static final String GRACE = "grace@example.test";
+    private static final UUID ADA_ID =
+            com.lewiswalker.savings.security.DemoIdentities.byEmail(ADA).orElseThrow().customerId();
 
     @Autowired private MockMvc mockMvc;
     @Autowired private AccountRepository repository;
@@ -133,6 +141,44 @@ class IdempotencyTest {
                         .content("{\"nickname\":\"Holiday fund\"}"))
                 .andExpect(status().isCreated());
         assertThat(repository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a key pointing at another customer's account is refused and recorded, not answered")
+    void ownershipMismatchIsRefused() throws Exception {
+        // Structurally impossible: the entry is namespaced by customer, so the id under
+        // Ada's key was put there by Ada. Forced through the store because the defence is
+        // against the namespacing being wrong, and a defence nothing exercises is a
+        // comment. Answering it would hand Ada an account belonging to Grace.
+        Logger auditLogger = (Logger) LoggerFactory.getLogger("audit");
+        ListAppender<ILoggingEvent> captured = new ListAppender<>();
+        captured.start();
+        auditLogger.addAppender(captured);
+        try {
+            String graceAccount = mockMvc.perform(post("/accounts")
+                            .header("Authorization", bearer(GRACE))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"nickname\":\"Grace's money\"}"))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            UUID graceAccountId = UUID.fromString(json.readTree(graceAccount).get("id").asString());
+
+            String key = freshKey();
+            store.complete(ADA_ID, key, RequestFingerprint.of(ADA_ID.toString(), "Holiday fund"),
+                    graceAccountId);
+
+            mockMvc.perform(open(key, "{\"nickname\":\"Holiday fund\"}"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.detail").value(not(containsString(graceAccountId.toString()))));
+
+            assertThat(captured.list).anySatisfy(event -> {
+                assertThat(event.getFormattedMessage()).contains("event=account.ownership-mismatch");
+                assertThat(event.getFormattedMessage()).contains(graceAccountId.toString());
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+            });
+        } finally {
+            auditLogger.detachAppender(captured);
+        }
     }
 
     @Test
