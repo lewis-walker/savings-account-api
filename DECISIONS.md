@@ -60,6 +60,14 @@ Database operations have a three-second timeout and are not retried; retries wou
 
 Account-allocation retries reuse the client reference. This prevents duplicate allocation when an earlier request succeeds but its response is lost.
 
+**Account opening is idempotent.** `POST /accounts` honours an `Idempotency-Key` header. The key is claimed with a single Redis `SET NX`, so two requests carrying the same key cannot both proceed; a key whose request has completed replays the original `201` rather than opening a second account. A key reused with a different request body returns `422` rather than the earlier result, because a retry repeats its request and anything else is a client defect.
+
+This matters because of the account limit. A response lost in transit, followed by a retry, would otherwise consume one of the customer's five slots with no way for them to tell.
+
+**The idempotency store fails closed, and the cache does not.** A cache failure is swallowed because the correct answer is still available from PostgreSQL. The idempotency store is a correctness control: degrading it silently would reinstate the duplicate-account defect at the moment it is most likely to occur, because a caller retries when something is already wrong. The same Redis instance therefore has two failure policies. Moving the store to PostgreSQL and into the opening transaction is the alternative; making the control best-effort is not.
+
+The header is optional so the API can be exercised without it. A production API would require it on unsafe methods, because the protection is worth what the least careful client does.
+
 Readiness deliberately excludes dependencies so a shared dependency outage does not remove every service instance from routing. The service can continue returning `503` responses, while `/actuator/health` reports the dependency failure to operators.
 
 ## Observability

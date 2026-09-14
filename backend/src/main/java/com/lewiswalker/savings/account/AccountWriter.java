@@ -53,9 +53,13 @@ public class AccountWriter {
             throw new AccountCapReachedException(customerId, cap);
         }
 
-        // Minted before allocation so it can serve as the allocator's client
-        // reference. Once idempotency keys exist, the key is the better reference:
-        // it is stable across a client's retries, where a fresh id is not.
+        // Minted before allocation so it can serve as the allocator's client reference.
+        //
+        // TODO: pass the request's Idempotency-Key down instead. It is stable across a
+        // client's retries, where this id is fresh on every attempt. It changes nothing
+        // for the local allocator, which ignores the reference because a sequence draw
+        // inside this transaction leaves no partial state - it matters for a remote
+        // allocator, where a lost response is exactly what the reference exists for.
         UUID id = UUID.randomUUID();
 
         Account account = new Account(

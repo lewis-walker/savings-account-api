@@ -53,6 +53,11 @@ spring:
       timeout: 500ms          # the cache must never be the slow part of a request
       connect-timeout: 500ms
 
+idempotency:
+  # How long a key is remembered. Long enough to cover any realistic retry, short enough
+  # that the store does not accumulate. Stripe uses 24 hours for the same reason.
+  retention: ${IDEMPOTENCY_RETENTION:24h}
+
 features:
   # Stand-in for LaunchDarkly. A real deployment leaves this empty and takes values
   # from the flag service; this exists so the demo can be driven from the environment.

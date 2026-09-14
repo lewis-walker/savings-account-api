@@ -6,6 +6,7 @@ import com.lewiswalker.savings.account.AccountNumberAllocationException;
 import com.lewiswalker.savings.customer.CustomerDirectoryUnavailableException;
 import com.lewiswalker.savings.customer.CustomerNotVerifiedException;
 import com.lewiswalker.savings.customer.UnknownCustomerException;
+import com.lewiswalker.savings.idempotency.IdempotencyExceptions;
 import com.lewiswalker.savings.nickname.OffensiveNicknameException;
 import com.lewiswalker.savings.observability.CorrelationIdFilter;
 import java.net.URI;
@@ -95,6 +96,37 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.FORBIDDEN, "customer-not-verified",
                 "Account cannot be opened",
                 "This customer is not currently able to open accounts. Please contact us.");
+    }
+
+    @ExceptionHandler(IdempotencyExceptions.KeyReused.class)
+    ProblemDetail idempotencyKeyReused(IdempotencyExceptions.KeyReused e) {
+        // 422: the key is syntactically fine and semantically refused. Not 409 - there is
+        // no conflicting state, the caller has simply reused a key for something else.
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, "idempotency-key-reused",
+                "Idempotency key reused",
+                "This Idempotency-Key was already used for a different request. "
+                        + "Use a new key, or resend the original request unchanged.");
+    }
+
+    @ExceptionHandler(IdempotencyExceptions.InProgress.class)
+    ProblemDetail idempotencyInProgress(IdempotencyExceptions.InProgress e) {
+        ProblemDetail problem = problem(HttpStatus.CONFLICT, "request-in-progress",
+                "Request already in progress",
+                "An identical request is still being processed. Please try again shortly.");
+        // Retryable, unlike the other 409 in this API. The account limit is a permanent
+        // refusal; this one resolves on its own within moments.
+        problem.setProperty("retryable", true);
+        return problem;
+    }
+
+    @ExceptionHandler(IdempotencyExceptions.StoreUnavailable.class)
+    ProblemDetail idempotencyStoreUnavailable(IdempotencyExceptions.StoreUnavailable e) {
+        log.error("the idempotency store was unavailable", e);
+        ProblemDetail problem = problem(HttpStatus.SERVICE_UNAVAILABLE, "temporarily-unavailable",
+                "Temporarily unavailable",
+                "This service is temporarily unable to complete your request. Please try again.");
+        problem.setProperty("retryable", true);
+        return problem;
     }
 
     @ExceptionHandler(AccountNotFoundException.class)

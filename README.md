@@ -33,6 +33,7 @@ incomplete — account opening is correctly refused).
 | Sign in as Alan | `403`; the reason is audited but not disclosed to the caller |
 | `docker compose stop postgres` | `503` in 3s with a reference, not a hang; recovers on its own |
 | `docker compose stop redis` | nothing breaks — the cache is never on the correctness path |
+| Send the same request twice with an `Idempotency-Key` | the second replays the original account; no second account is opened |
 | Toggle `redis-cache` in the ops console | takes effect on the next request, no restart |
 
 Every error carries a **reference**. Search for it in the ops console log and you will
