@@ -62,12 +62,7 @@ public class AccountController {
 
     /**
      * The account behind an id this endpoint produced or replayed.
-     *
-     * <p>Deliberately not the quiet filter that {@link #get} uses. There, a mismatch is a
-     * caller asking about an account that is not theirs, which is expected and answered
-     * with a 404. Here the id came from an idempotency entry namespaced by this customer,
-     * or from the write that had just created it, so a mismatch is an invariant failing:
-     * recorded, and refused rather than answered.
+     * A mismatch of customerId SHOULD be impossible.
      */
     private AccountView requireOwnedAccount(UUID customerId, UUID accountId) {
         AccountView account = accounts.findById(accountId)
@@ -95,8 +90,8 @@ public class AccountController {
     }
 
     /**
-     * Takes no identifier: the customer comes from the token, so a caller has no input
-     * to vary and cannot reach an account that is not theirs.
+     * Takes no identifier: the customer comes from the token, so a caller
+     * cannot reach an account that is not theirs.
      */
     @GetMapping
     public List<AccountResponse> list(@AuthenticationPrincipal Jwt caller) {

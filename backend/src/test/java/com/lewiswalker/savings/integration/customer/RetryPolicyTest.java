@@ -59,7 +59,7 @@ class RetryPolicyTest {
         // Throwable, so that assertion was a tautology. This pins the type the 503
         // mapping in ApiExceptionHandler depends on, which nothing else in the suite does.
         assertThatThrownBy(() -> directory.findById(UUID.randomUUID()))
-                .isInstanceOf(CustomerDirectoryUnavailableException.class);
+                .isInstanceOf(CustomerServiceUnavailableException.class);
 
         // One original attempt plus maxRetries. Unbounded retry against a dependency
         // that is genuinely down is how one outage becomes two.
@@ -108,7 +108,7 @@ class RetryPolicyTest {
         static volatile boolean permanentFailure = false;
 
         @Retryable(
-                includes = CustomerDirectoryUnavailableException.class,
+                includes = CustomerServiceUnavailableException.class,
                 maxRetries = 2, delay = 30, jitter = 10, multiplier = 2.0, maxDelay = 200,
                 timeout = 2000)
         @Override
@@ -118,7 +118,7 @@ class RetryPolicyTest {
                 throw new UnknownCustomerException(customerId);
             }
             if (attempt <= failuresBeforeSuccess) {
-                throw new CustomerDirectoryUnavailableException("simulated outage");
+                throw new CustomerServiceUnavailableException("simulated outage");
             }
             return Optional.of(new Customer(customerId, "Test Person",
                     Customer.DueDiligence.COMPLETE));

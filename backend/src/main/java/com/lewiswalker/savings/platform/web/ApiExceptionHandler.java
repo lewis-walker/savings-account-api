@@ -5,7 +5,7 @@ import com.lewiswalker.savings.account.AccountNotFoundException;
 import com.lewiswalker.savings.account.OwnershipMismatchException;
 import com.lewiswalker.savings.account.ConstraintNames;
 import com.lewiswalker.savings.integration.numbering.AccountNumberAllocationException;
-import com.lewiswalker.savings.integration.customer.CustomerDirectoryUnavailableException;
+import com.lewiswalker.savings.integration.customer.CustomerServiceUnavailableException;
 import com.lewiswalker.savings.integration.customer.CustomerNotVerifiedException;
 import com.lewiswalker.savings.integration.customer.UnknownCustomerException;
 import com.lewiswalker.savings.platform.idempotency.IdempotencyExceptions;
@@ -122,7 +122,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({AccountNumberAllocationException.class,
-            CustomerDirectoryUnavailableException.class,
+            CustomerServiceUnavailableException.class,
             IdempotencyExceptions.StoreUnavailable.class})
     ProblemDetail dependencyUnavailable(RuntimeException e) {
         log.error("a dependency was unavailable", e);

@@ -5,8 +5,7 @@ import java.util.UUID;
 
 /**
  * An immutable snapshot, and the only form in which an account leaves
- * {@link AccountService}. The entity is mutable, session-bound and shaped like the
- * schema, so it is not what gets cached or returned.
+ * {@link AccountService}.
  *
  * <p>Carries {@code customerId} and {@code sequenceNo}, which {@link
  * com.lewiswalker.savings.account.api.AccountResponse} does not.

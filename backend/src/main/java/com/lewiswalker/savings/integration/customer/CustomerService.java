@@ -12,7 +12,7 @@ public interface CustomerService {
 
     /**
      * @return the customer, or empty if the master has no such record
-     * @throws CustomerDirectoryUnavailableException if the master could not be reached
+     * @throws CustomerServiceUnavailableException if the master could not be reached
      */
     Optional<Customer> findById(UUID customerId);
 }

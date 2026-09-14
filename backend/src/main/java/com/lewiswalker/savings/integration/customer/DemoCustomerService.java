@@ -48,7 +48,7 @@ public class DemoCustomerService implements CustomerService {
             // attempts a write the cache refuses, and logs a failure that is not one.
             unless = "#result == null")
     @Retryable(
-            includes = CustomerDirectoryUnavailableException.class,
+            includes = CustomerServiceUnavailableException.class,
             maxRetries = 2,
             delay = 100,
             jitter = 50,
