@@ -12,7 +12,11 @@ export default function AccountRow({ account }: { account: Row }) {
     <li style={{ borderTop: '1px solid var(--gray-a6)' }}>
       <Flex align="center" gap="3" py="3">
         <Flex direction="column" gap="1" minWidth="0">
-          <Text weight="medium">{account.nickname ?? 'Savings account'}</Text>
+          {/* The server names an unnamed account, so every client names it the same.
+              A pending row has no sequence yet, so it shows what was typed. */}
+          <Text weight="medium">
+            {account.pending ? account.nickname ?? 'Savings account' : account.displayName}
+          </Text>
           {/* The API allocates the number, so a pending row has none. A placeholder
               would be inventing a banking identifier. */}
           <Code size="1" color="gray" variant="ghost">

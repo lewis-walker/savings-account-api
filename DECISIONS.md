@@ -100,6 +100,10 @@ A real flag service evaluates per user, so a flag can be on for some people and 
 
 Each flag records its purpose and expected lifetime. Temporary flags should be removed when no longer needed; operational kill switches remain.
 
+**An unnamed account is named, but the nickname stays empty.** The brief makes the nickname optional and says nothing about what to show when it is absent, so the response carries a `displayName` alongside it: the nickname where there is one, otherwise `Savings account <n>` from the customer's own account sequence. That sequence is already unique per customer — the unique index guarantees it — so their five accounts are distinguishable rather than five rows reading the same thing.
+
+Derived on the way out, never stored. `nickname` remains the customer's word and `displayName` remains ours, so a support screen or a statement run can still tell which is which. Computed on the server so every client names an account the same way, rather than each one inventing a rule.
+
 ## Front end
 
 **Appearance follows the operating system, until someone says otherwise.** `useAppearance` reads `prefers-color-scheme` and keeps listening, because a desktop can switch it on a schedule while the page is open. An explicit choice overrides it and is kept per device. Every call to `matchMedia` is guarded: jsdom does not implement it, so a component that assumes it is there fails in tests rather than in a browser.

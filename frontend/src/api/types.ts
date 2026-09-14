@@ -3,7 +3,10 @@ export type Account = {
   id: string;
   accountNumber: string;
   customerName: string;
+  /** What the customer called it, or null if they did not name it. */
   nickname: string | null;
+  /** What to show. The nickname, or one the server built from their account sequence. */
+  displayName: string;
   openedAt: string;
 }
 

@@ -116,6 +116,7 @@ describe('opening an account', () => {
         accountNumber: '99-0001-0000123-030',
         customerName: 'Ada Lovelace',
         nickname: 'Holiday fund',
+        displayName: 'Holiday fund',
         openedAt: '2026-09-14T10:00:00Z',
       },
     });
@@ -186,6 +187,7 @@ describe('opening an account', () => {
           accountNumber: '99-0001-0000321-030',
           customerName: 'Ada Lovelace',
           nickname: 'Holiday fund',
+          displayName: 'Holiday fund',
           openedAt: '2026-09-14T10:00:00Z',
         },
       });
@@ -213,7 +215,7 @@ describe('opening an account', () => {
       draft.length = 0;
       draft.push({
         clientRef: 'server-1', id: 'server-1', accountNumber: '99-0001-0000111-030',
-        customerName: 'Ada Lovelace', nickname: 'House deposit',
+        customerName: 'Ada Lovelace', nickname: 'House deposit', displayName: 'House deposit',
         openedAt: '2026-09-14T09:00:00Z', pending: false,
       });
     }));
