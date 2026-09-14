@@ -80,9 +80,6 @@ public class NzAccountNumberFormat {
         }
 
         String base = "0" + body + checkDigit;
-        if (Integer.parseInt(base) >= MAX_BASE_EXCLUSIVE) {
-            return Optional.empty();
-        }
         return Optional.of("%s-%s-%s-%s".formatted(BANK_ID, BRANCH, base, SUFFIX));
     }
 

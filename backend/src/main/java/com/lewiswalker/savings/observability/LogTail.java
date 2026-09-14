@@ -57,9 +57,14 @@ public class LogTail {
     /**
      * Everything after the given sequence number.
      *
-     * <p>A sequence rather than a timestamp, so a caller polling repeatedly gets each
-     * line exactly once. Timestamps collide at millisecond resolution under load, and a
-     * tail that duplicates or skips lines is worse than no tail.
+     * <p>A sequence rather than a timestamp, because timestamps collide at millisecond
+     * resolution and a tail that duplicates lines is worse than one that drops them.
+     *
+     * <p>At most once, not exactly once: the endpoint reads the entries and then reads the
+     * cursor, so a line recorded between those two calls falls inside the cursor without
+     * having been returned. Acceptable for a live tail somebody is watching, and not
+     * acceptable for anything that needs every line — which is what the log aggregator is
+     * for.
      */
     public List<Entry> since(long after) {
         synchronized (entries) {

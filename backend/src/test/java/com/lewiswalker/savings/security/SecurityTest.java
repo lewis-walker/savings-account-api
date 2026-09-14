@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.lewiswalker.savings.TestcontainersConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -80,8 +81,29 @@ class SecurityTest {
         // problem document rather than through sendError, so getErrorMessage() is null on
         // both responses and comparing them asserted null == null - which passes happily
         // against a controller that says "no such email" and "wrong password".
-        assertThat(unknownEmail.getResponse().getContentAsString())
-                .isEqualTo(wrongPassword.getResponse().getContentAsString());
+        //
+        // Everything except the correlation id, which is per-request by design and so is
+        // the one field that must differ.
+        assertThat(withoutCorrelationId(unknownEmail.getResponse().getContentAsString()))
+                .isEqualTo(withoutCorrelationId(wrongPassword.getResponse().getContentAsString()));
+    }
+
+    @Test
+    @DisplayName("a failure the base handler produces still carries the reference")
+    void inheritedProblemDocumentsCarryTheCorrelationId() throws Exception {
+        // The 401 here is a ResponseStatusException, rendered by the inherited
+        // ResponseEntityExceptionHandler rather than by this application's problem()
+        // helper - so it used to come back with no correlationId at all. It is also the
+        // first error most people trigger, and the README tells them to search for the
+        // reference it was not carrying.
+        String body = mockMvc.perform(post("/auth/token")
+                        .header("X-Correlation-Id", "reference-check-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ada@example.test\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains("reference-check-001");
     }
 
     @Test
@@ -110,6 +132,13 @@ class SecurityTest {
     void garbageTokenIsRejected() throws Exception {
         mockMvc.perform(get("/accounts").header("Authorization", "Bearer not.a.token"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /** The problem document minus the one field that is supposed to differ per request. */
+    private String withoutCorrelationId(String body) {
+        ObjectNode node = (ObjectNode) new ObjectMapper().readTree(body);
+        node.remove("correlationId");
+        return node.toString();
     }
 
     private MvcResult attempt(String email, String password) throws Exception {

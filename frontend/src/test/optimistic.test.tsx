@@ -163,6 +163,75 @@ describe('opening an account', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('f6606eea3aea785c284ca07adc4c15ff');
   });
 
+  it('still shows the account when the optimistic row is gone before the response lands',
+    async () => {
+      const { fetchMock, releaseCreate } = controllableFetch();
+      vi.stubGlobal('fetch', fetchMock);
+
+      render(<Provider store={store}><Accounts /></Provider>);
+      await screen.findByText(/no accounts yet/i);
+
+      await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
+      await userEvent.click(screen.getByRole('button', { name: /open account/i }));
+      await screen.findByText('Holiday fund');
+
+      // A reconnect refetch rebuilds the list and the optimistic row is gone. Before the
+      // upsert, reconciliation was a find-and-merge guarded by `if (row)`, so this was a
+      // silent no-op - and because the mutation does not invalidate, nothing ever
+      // refetched. A committed account simply never appeared.
+      store.dispatch(api.util.updateQueryData('listAccounts', undefined, () => []));
+
+      releaseCreate({
+        status: 201,
+        body: {
+          id: 'a2f1c6de-0000-4000-8000-000000000009',
+          accountNumber: '99-0001-0000321-030',
+          customerName: 'Ada Lovelace',
+          nickname: 'Holiday fund',
+          openedAt: '2026-09-14T10:00:00Z',
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('99-0001-0000321-030')).toBeInTheDocument();
+      });
+      expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    });
+
+  it('rolls back the row it added, not whatever now sits at that index', async () => {
+    const { fetchMock, releaseCreate } = controllableFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<Provider store={store}><Accounts /></Provider>);
+    await screen.findByText(/no accounts yet/i);
+
+    await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
+    await userEvent.click(screen.getByRole('button', { name: /open account/i }));
+    await screen.findByText('Holiday fund');
+
+    // A refetch lands while the create is in flight and replaces the list. The optimistic
+    // row was at index 0; a real account is there now.
+    store.dispatch(api.util.updateQueryData('listAccounts', undefined, (draft) => {
+      draft.length = 0;
+      draft.push({
+        clientRef: 'server-1', id: 'server-1', accountNumber: '99-0001-0000111-030',
+        customerName: 'Ada Lovelace', nickname: 'House deposit',
+        openedAt: '2026-09-14T09:00:00Z',
+      });
+    }));
+
+    releaseCreate({ status: 503, body: { title: 'Temporarily unavailable', status: 503 } });
+
+    // patch.undo() replays "remove index 0" and would delete the real account. Removing
+    // by clientRef finds nothing to remove, which is correct: the optimistic row is
+    // already gone.
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+    expect(screen.getByText('House deposit')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
   it('reuses the idempotency key when retrying, so a retry cannot open a second account',
     async () => {
       const { fetchMock, releaseCreate } = controllableFetch();
