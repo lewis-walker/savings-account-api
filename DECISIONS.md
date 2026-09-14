@@ -56,7 +56,7 @@ CSRF protection is disabled because authentication does not use cookies. This de
 
 ## Resilience
 
-Retries apply at the two integration ports — the customer directory and account-number allocation — and only to transient unavailability. Permanent failures are returned immediately: an unknown customer will still be unknown after a delay, so a retry spends time without changing the answer.
+Retry is applied once, at the customer lookup, and only to transient unavailability. Permanent failures are returned immediately: an unknown customer will still be unknown after a delay, so a retry spends time without changing the answer. The other integration points declare the interface and leave the policy to the real adapter — the same annotation copied onto a stand-in that cannot fail is tuning parameters, not a decision. Account-number allocation makes the point: its local implementation already redraws internally when the check digit rejects a seed, and the one failure it surfaces to a caller — an exhausted branch range — is permanent, so retrying it would be the mistake the paragraph above warns about.
 
 Retries are deliberately not applied anywhere else.
 

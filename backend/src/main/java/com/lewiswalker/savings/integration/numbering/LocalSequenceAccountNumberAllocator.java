@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,14 +30,6 @@ public class LocalSequenceAccountNumberAllocator implements AccountNumberAllocat
     }
 
     /** {@code clientReference} is ignored: a local draw leaves no partial state. */
-    @Retryable(
-            includes = AccountNumberAllocationException.class,
-            maxRetries = 2,
-            delay = 100,
-            jitter = 50,
-            multiplier = 2.0,
-            maxDelay = 500,
-            timeout = 2000)
     @Override
     public String allocate(UUID customerId, String clientReference) {
         for (int draw = 0; draw < MAX_DRAWS; draw++) {
