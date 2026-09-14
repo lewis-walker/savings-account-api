@@ -32,12 +32,12 @@ import org.springframework.context.annotation.Import;
 class CacheKillSwitchTest {
 
     private static final UUID ADA =
-            DemoIdentities.byEmail("ada@example.test").orElseThrow().customerId();
+            DemoIdentities.ADA.customerId();
 
     @Autowired private AccountService accounts;
     @Autowired private AccountRepository repository;
     @Autowired private CacheManager cacheManager;
-    @Autowired private ConfiguredFeatureFlags flags;
+    @Autowired private FeatureFlags flags;
 
     @BeforeEach
     void clear() {
@@ -47,13 +47,13 @@ class CacheKillSwitchTest {
 
     @AfterEach
     void restore() {
-        flags.override(Feature.REDIS_CACHE, true);
+        flags.setRedisCacheEnabled(true);
     }
 
     @Test
     @DisplayName("with the switch off nothing is written to the cache")
     void switchOffStopsWrites() {
-        flags.override(Feature.REDIS_CACHE, false);
+        flags.setRedisCacheEnabled(false);
 
         AccountView opened = accounts.open(ADA, "Holiday fund");
 
@@ -68,7 +68,7 @@ class CacheKillSwitchTest {
     @Test
     @DisplayName("with the switch off everything still works, just from Postgres")
     void switchOffKeepsTheServiceWorking() {
-        flags.override(Feature.REDIS_CACHE, false);
+        flags.setRedisCacheEnabled(false);
 
         AccountView opened = accounts.open(ADA, "House deposit");
 
@@ -79,13 +79,13 @@ class CacheKillSwitchTest {
     @Test
     @DisplayName("flipping the switch takes effect on the next call, with no restart")
     void switchTakesEffectImmediately() {
-        flags.override(Feature.REDIS_CACHE, false);
+        flags.setRedisCacheEnabled(false);
         AccountView whileOff = accounts.open(ADA, "Rainy day");
         assertThat(cacheManager.getCache(CacheConfig.ACCOUNTS).get(whileOff.id())).isNull();
 
         // Same process, same beans, nothing restarted - as though someone had just
         // moved a toggle in a dashboard.
-        flags.override(Feature.REDIS_CACHE, true);
+        flags.setRedisCacheEnabled(true);
 
         accounts.findById(whileOff.id());
 
@@ -100,7 +100,7 @@ class CacheKillSwitchTest {
         AccountView opened = accounts.open(ADA, "Emergency fund");
         AccountView cached = accounts.findById(opened.id()).orElseThrow();
 
-        flags.override(Feature.REDIS_CACHE, false);
+        flags.setRedisCacheEnabled(false);
         AccountView uncached = accounts.findById(opened.id()).orElseThrow();
 
         // The cache is on the latency path and never the correctness path. If these

@@ -2,7 +2,6 @@ package com.lewiswalker.savings.account;
 
 import java.util.UUID;
 
-/** The customer already holds the maximum number of accounts. Permanent; never retried. */
 public class AccountCapReachedException extends RuntimeException {
 
     private final UUID customerId;

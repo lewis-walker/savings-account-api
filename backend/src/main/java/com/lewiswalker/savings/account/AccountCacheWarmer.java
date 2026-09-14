@@ -11,9 +11,6 @@ import org.springframework.stereotype.Component;
 /**
  * Puts a newly opened account into the cache. Must be called after the opening
  * transaction has committed.
- *
- * <p>Not covered by {@code CacheErrorHandling}, which only wraps Spring's caching
- * interceptor - hence the catch. A failed warm must not fail a committed write.
  */
 @Component
 public class AccountCacheWarmer {
@@ -29,7 +26,6 @@ public class AccountCacheWarmer {
     }
 
     public void warm(AccountView account) {
-        // The kill switch covers writes too, or entries go stale until it is switched on.
         if (!features.redisCacheEnabled()) {
             return;
         }
@@ -37,6 +33,8 @@ public class AccountCacheWarmer {
         if (cache == null) {
             return;
         }
+
+        // A failed warm must not fail a committed write
         try {
             cache.put(account.id(), account);
         } catch (RuntimeException e) {

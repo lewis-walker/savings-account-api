@@ -14,9 +14,7 @@ import java.lang.annotation.Target;
  * Length in characters, counted the way the database counts them.
  *
  * <p>{@code @Size} counts UTF-16 code units and Postgres {@code char_length} counts
- * characters, so three emoji are six to one and three to the other. That let input past
- * the edge that the table then rejected, which arrives as a constraint violation
- * carrying the failing row.
+ * characters, so three emoji are six to one and three to the other.
  */
 @Documented
 @Constraint(validatedBy = NicknameLength.Validator.class)

@@ -17,18 +17,18 @@ import org.springframework.stereotype.Component;
  * is reachable in the running system.
  */
 @Component
-public class DemoCustomerDirectory implements CustomerDirectory {
+public class DemoCustomerService implements CustomerService {
 
     private final Map<UUID, Customer> customers;
 
-    public DemoCustomerDirectory() {
+    public DemoCustomerService() {
         this.customers = DemoIdentities.all().stream()
                 .map(identity -> new Customer(
                         identity.customerId(),
                         identity.fullName(),
                         // Alan Turing's due diligence is pending: log in as him to see
                         // an account opening correctly refused.
-                        "alan@example.test".equals(identity.email())
+                        DemoIdentities.ALAN.equals(identity)
                                 ? Customer.DueDiligence.PENDING
                                 : Customer.DueDiligence.COMPLETE))
                 .collect(Collectors.toUnmodifiableMap(Customer::id, Function.identity()));
@@ -37,10 +37,8 @@ public class DemoCustomerDirectory implements CustomerDirectory {
     /**
      * {@inheritDoc}
      *
-     * <p>The retry policy is on the adapter, not the port: how hard to try is a property
-     * of the transport. It cannot fire against an in-process map, and is here because the
-     * real adapter takes this place. Only unavailability is retried - an unknown customer
-     * is a final answer, and retrying it would delay a definite no.
+     * This is just a mock implementation, but it's a good example of an integration
+     * where it's worth retrying if there's (potentially temporary) unavailability.
      */
     @Cacheable(value = CacheConfig.CUSTOMERS, key = "#customerId",
             condition = "@featureFlags.redisCacheEnabled()",
@@ -48,15 +46,12 @@ public class DemoCustomerDirectory implements CustomerDirectory {
             // attempts a write the cache refuses, and logs a failure that is not one.
             unless = "#result == null")
     @Retryable(
-            includes = CustomerDirectoryUnavailableException.class,
+            includes = CustomerServiceUnavailableException.class,
             maxRetries = 2,
             delay = 100,
             jitter = 50,
             multiplier = 2.0,
             maxDelay = 500,
-            // A ceiling on the whole affair. Without it a policy can quietly outlast
-            // the caller's own timeout, and the work is thrown away by someone who has
-            // already given up.
             timeout = 2000)
     @Override
     public Optional<Customer> findById(UUID customerId) {

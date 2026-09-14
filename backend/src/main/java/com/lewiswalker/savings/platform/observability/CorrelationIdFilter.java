@@ -18,10 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * and returns it to the caller. Ordered first, so nothing - including an authentication
  * failure inside the security chain - can log before the id exists.
  *
- * <p>The id normally comes from the gateway, which sees requests this service never
- * will; one is generated here when the header is absent. The inbound value is validated
- * and replaced rather than trusted: it is attacker-controlled input on its way into a
- * log file (CWE-117), and a carriage return in it forges entries.
+ * <p>In real life the id would come from an API gateway
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)

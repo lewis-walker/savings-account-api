@@ -36,9 +36,9 @@ import org.springframework.context.annotation.Import;
 class AuditLogTest {
 
     private static final UUID ADA =
-            DemoIdentities.byEmail("ada@example.test").orElseThrow().customerId();
+            DemoIdentities.ADA.customerId();
     private static final UUID ALAN =
-            DemoIdentities.byEmail("alan@example.test").orElseThrow().customerId();
+            DemoIdentities.ALAN.customerId();
 
     @Autowired private AccountService accounts;
     @Autowired private AccountRepository repository;

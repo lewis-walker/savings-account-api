@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 /**
  * One attempt at opening an account.
  *
- * <p>Not transactional: {@link AccountService} opens one per attempt, because Postgres
+ * <p>Not transactional: {@link AccountService} opens one transaction per attempt, because Postgres
  * aborts a transaction when a constraint fires and the retry needs a fresh one.
  */
 @Component
@@ -27,25 +27,26 @@ public class AccountWriter {
     }
 
     /**
+     * @param clientReference identifies this request to the allocator, unchanged across
+     *                        the caller's retries
      * @throws AccountCapReachedException if the customer is already full
      * @throws SequenceContendedException if another request took the slot; caller may retry
      */
-    public Account attemptOpen(UUID customerId, String customerName, String nickname, int cap) {
+    public Account attemptOpen(UUID customerId, String customerName, String nickname, int cap,
+                               String clientReference) {
         short sequenceNo = repository.nextSequenceNo(customerId);
 
-        // A clean answer for the common case, not the enforcement: the unique index
-        // resolves the race, the CHECK bounds the series.
+        // A quick answer for the common case, The unique index prevents race conditions.
+        // This prevents the expensive call to the external accountNumbers.allocate().
         if (sequenceNo > cap) {
             throw new AccountCapReachedException(customerId, cap);
         }
 
-        // TODO: use the request's Idempotency-Key as the client reference instead. It is
-        // stable across retries, where this id is not. Matters only for a remote allocator.
         UUID id = UUID.randomUUID();
 
         Account account = new Account(
                 id,
-                accountNumbers.allocate(customerId, id.toString()),
+                accountNumbers.allocate(customerId, clientReference),
                 customerId,
                 customerName,
                 nickname,

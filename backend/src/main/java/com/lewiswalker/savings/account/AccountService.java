@@ -3,7 +3,7 @@ package com.lewiswalker.savings.account;
 import com.lewiswalker.savings.platform.audit.AuditLog;
 import com.lewiswalker.savings.platform.cache.CacheConfig;
 import com.lewiswalker.savings.integration.customer.Customer;
-import com.lewiswalker.savings.integration.customer.CustomerDirectory;
+import com.lewiswalker.savings.integration.customer.CustomerService;
 import com.lewiswalker.savings.integration.customer.CustomerNotVerifiedException;
 import com.lewiswalker.savings.integration.customer.UnknownCustomerException;
 import com.lewiswalker.savings.integration.nickname.OffensiveNicknameChecker;
@@ -24,19 +24,15 @@ public class AccountService {
 
     public static final int ACCOUNTS_PER_CUSTOMER = 5;
 
-    /**
-     * Bounded at the cap, and that is the reason rather than a coincidence. Each loss
-     * means the slot this attempt targeted was taken by someone who committed, so the
-     * targets advance 1, 2, 3... Losing this many times means every slot is gone.
-     */
-    private static final int MAX_ATTEMPTS = ACCOUNTS_PER_CUSTOMER;
+    // Failing this many times means every slot is gone.
+    private static final int MAX_SEQUENCE_NUMBER_FAILS = ACCOUNTS_PER_CUSTOMER;
 
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
 
     private final AccountWriter writer;
     private final AccountRepository repository;
     private final OffensiveNicknameChecker nicknameChecker;
-    private final CustomerDirectory customers;
+    private final CustomerService customers;
     private final AuditLog auditLog;
     private final AccountCacheWarmer cacheWarmer;
 
@@ -45,7 +41,7 @@ public class AccountService {
 
     public AccountService(AccountWriter writer, AccountRepository repository,
                           OffensiveNicknameChecker nicknameChecker,
-                          CustomerDirectory customers, AuditLog auditLog,
+                          CustomerService customers, AuditLog auditLog,
                           AccountCacheWarmer cacheWarmer,
                           PlatformTransactionManager transactionManager) {
         this.writer = writer;
@@ -59,11 +55,22 @@ public class AccountService {
     }
 
     /**
-     * @param customerId from the authenticated principal, never from the request body
+     * @param customerId from the authenticated principal
      * @throws UnknownCustomerException     the master has no such customer
      * @throws CustomerNotVerifiedException due diligence is not complete
      */
     public AccountView open(UUID customerId, String nickname) {
+        return open(customerId, nickname, null);
+    }
+
+    /**
+     * @param clientReference the caller's name for this request, passed to the allocator so
+     *                        a retry cannot draw a second account number. The request's
+     *                        {@code Idempotency-Key} where there is one; null mints a
+     *                        reference good for this call, which still covers the retries
+     *                        below but not a retry of the request itself.
+     */
+    public AccountView open(UUID customerId, String nickname, String clientReference) {
         // Local and cheap before the remote lookup.
         nicknameChecker.check(nickname);
 
@@ -80,11 +87,15 @@ public class AccountService {
             throw new CustomerNotVerifiedException(customer.dueDiligence());
         }
 
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        // Fixed before the loop: the point of it is that every attempt asks for the
+        // same allocation.
+        String reference = clientReference != null ? clientReference : UUID.randomUUID().toString();
+
+        for (int attempt = 1; attempt <= MAX_SEQUENCE_NUMBER_FAILS; attempt++) {
             try {
                 AccountView opened = transaction.execute(status ->
                         AccountView.of(writer.attemptOpen(customerId, customer.fullName(),
-                                nickname, ACCOUNTS_PER_CUSTOMER)));
+                                nickname, ACCOUNTS_PER_CUSTOMER, reference)));
 
                 // execute() has returned, so the account is committed.
                 auditLog.accountOpened(customerId, opened.id(), opened.sequenceNo());
@@ -94,11 +105,11 @@ public class AccountService {
                 throw accountCapReached(customerId);
             } catch (SequenceContendedException e) {
                 log.debug("sequence contended for customer {}, attempt {} of {}",
-                        customerId, attempt, MAX_ATTEMPTS);
+                        customerId, attempt, MAX_SEQUENCE_NUMBER_FAILS);
             }
         }
         log.warn("gave up opening an account for customer {} after {} contended attempts",
-                customerId, MAX_ATTEMPTS);
+                customerId, MAX_SEQUENCE_NUMBER_FAILS);
         throw accountCapReached(customerId);
     }
 

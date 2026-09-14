@@ -6,8 +6,7 @@ import java.util.UUID;
  * Allocates an account number.
  *
  * <p>An interface with one implementation. In a real institution the number comes from
- * the core banking platform, out of a range registered with Payments NZ, so the call
- * leaves this process.
+ * the core banking platform, out of a range registered with Payments NZ
  *
  * <p>{@code clientReference} exists for that case: a timed-out allocation may have
  * succeeded, so a retry has to be recognisable as a repeat rather than allocating a

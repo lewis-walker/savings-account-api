@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lewiswalker.savings.TestcontainersConfiguration;
+import com.lewiswalker.savings.platform.security.DemoIdentities;
 import com.lewiswalker.savings.account.AccountRepository;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -49,8 +50,8 @@ import tools.jackson.databind.ObjectMapper;
 @Import(TestcontainersConfiguration.class)
 class IdempotencyTest {
 
-    private static final String ADA = "ada@example.test";
-    private static final String GRACE = "grace@example.test";
+    private static final String ADA = DemoIdentities.ADA.email();
+    private static final String GRACE = DemoIdentities.GRACE.email();
     private static final UUID ADA_ID =
             com.lewiswalker.savings.platform.security.DemoIdentities.byEmail(ADA).orElseThrow().customerId();
 

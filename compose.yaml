@@ -47,6 +47,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-savings}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # Tunable per deployment without a rebuild. The application's own defaults apply
+      # when these are unset, which is how the demo runs.
+      CACHE_TTL_CUSTOMERS: ${CACHE_TTL_CUSTOMERS:-5m}
+      CACHE_TTL_ACCOUNTS: ${CACHE_TTL_ACCOUNTS:-2m}
     ports:
       - "${API_PORT:-8080}:8080"
       # The management port, published separately. In a real deployment this is bound

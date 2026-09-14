@@ -3,9 +3,11 @@ package com.lewiswalker.savings.account;
 import org.hibernate.exception.ConstraintViolationException;
 
 /**
- * Reads which database constraint a failure came from. Shared because the writer needs
- * it to decide whether to retry, and the exception handler needs it to report a failure
- * without the exception, whose message carries the whole failing row.
+ * Reads which database constraint a failure came from.
+ *
+ * <p>Two callers want it for different reasons. The writer decides from it whether the
+ * failure is retryable. The handler logs it instead of the exception, whose message
+ * quotes the failing row — customer name and all (PII).
  */
 public final class ConstraintNames {
 

@@ -8,7 +8,9 @@ This document records assumptions, implementation decisions, and production cons
 - **Customer names come from the Customers API.** Account opening assumes an existing, verified customer record under AML/CFT requirements. The account stores the name as a snapshot for audit purposes; the customer record remains authoritative for the current name. Names are excluded from tokens to avoid exposing them through request-header logging.
 - **The resource server requires a subject it can read as a customer id.** Customer identity is the `sub` claim, and nothing in Spring Security's default validators requires `sub` to be present, let alone to be a customer id — a correctly signed token from the trusted issuer, with the right audience, can carry an opaque subject or none at all, which is what most identity providers issue. `JwtKeys` validates it during decoding, so such a token is a `401` rather than a request that fails somewhere further in. `SecurityTest` mints tokens that differ from a real one only in the subject, and fails if the check is removed.
 
-**Authentication belongs to an external identity provider.** `SecurityConfig` configures the service as a resource server. `TokenController` implements the OAuth 2.0 password grant solely for the demo. This grant is removed in OAuth 2.1, and the controller would be removed in production.
+**Authentication belongs to an external identity provider.** The token reaches this service from the enterprise IdP by way of the API gateway, which is where single sign-on integrates. The service validates it anyway rather than trusting an upstream header: anything that can reach the port can forge a header, so signature, issuer, audience and subject are checked here regardless of what the gateway already did. `SecurityConfig` and the decoder in `JwtKeys` are that half, and are the part that survives.
+
+`TokenController` is not. It exists so the front end has a sign-in screen to fill in, and so the endpoint is not an open token dispenser. The password is one fixed string shared by every demo identity, published in the README - not a credential, not stored, and not hashed, because a service that holds customer passwords is the thing this design exists to avoid. Against a real IdP the controller is deleted outright.
 - **The service owns one table: accounts.** Customer records and credentials belong to other services.
 
 ## Five-account limit
@@ -56,7 +58,7 @@ CSRF protection is disabled because authentication does not use cookies. This de
 
 ## Resilience
 
-Retries apply at the two integration ports — the customer directory and account-number allocation — and only to transient unavailability. Permanent failures are returned immediately: an unknown customer will still be unknown after a delay, so a retry spends time without changing the answer.
+Retry is applied once, at the customer lookup, and only to transient unavailability. Permanent failures are returned immediately: an unknown customer will still be unknown after a delay, so a retry spends time without changing the answer. The other integration points declare the interface and leave the policy to the real adapter — the same annotation copied onto a stand-in that cannot fail is tuning parameters, not a decision. Account-number allocation makes the point: its local implementation already redraws internally when the check digit rejects a seed, and the one failure it surfaces to a caller — an exhausted branch range — is permanent, so retrying it would be the mistake the paragraph above warns about.
 
 Retries are deliberately not applied anywhere else.
 
@@ -94,7 +96,7 @@ Readiness deliberately excludes dependencies so a shared dependency outage does 
 
 A cache kill switch allows operators to bypass a failing cache without deployment. It is evaluated on every call, takes effect on the next request, and cannot fail the request if evaluation fails.
 
-Evaluation accepts a context for future targeting. The context excludes personal data because it is sent to a third-party service.
+A real flag service evaluates per user, so a flag can be on for some people and not others. That is not modelled here: the one flag is an operational kill switch, which is on for everyone or off for everyone, and an unused parameter threaded through every call site to suggest otherwise would be a claim the code does not support. Worth knowing for the real adapter: whatever identifies the user is sent to the flag service and appears in its dashboard, so it takes an opaque id and not a name or an email.
 
 Each flag records its purpose and expected lifetime. Temporary flags should be removed when no longer needed; operational kill switches remain.
 
@@ -110,7 +112,7 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 ## Testing
 
-Tests are selected for the failures they would detect rather than for coverage. The suite is 75 backend tests and 3 front-end tests.
+Tests are selected for the failures they would detect rather than for coverage.
 
 **Testcontainers rather than an in-memory database.** The account limit is enforced by PostgreSQL constraints and the caching behaviour depends on Redis. A substitute would exercise different behaviour and pass regardless of whether the real constraints were correct.
 

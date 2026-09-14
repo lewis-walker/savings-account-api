@@ -26,7 +26,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 class RetryPolicyTest {
 
     @Autowired
-    private CustomerDirectory directory;
+    private CustomerService directory;
 
     @BeforeEach
     void reset() {
@@ -59,7 +59,7 @@ class RetryPolicyTest {
         // Throwable, so that assertion was a tautology. This pins the type the 503
         // mapping in ApiExceptionHandler depends on, which nothing else in the suite does.
         assertThatThrownBy(() -> directory.findById(UUID.randomUUID()))
-                .isInstanceOf(CustomerDirectoryUnavailableException.class);
+                .isInstanceOf(CustomerServiceUnavailableException.class);
 
         // One original attempt plus maxRetries. Unbounded retry against a dependency
         // that is genuinely down is how one outage becomes two.
@@ -101,14 +101,14 @@ class RetryPolicyTest {
     }
 
     /** Fails on demand, counting how many times it was actually called. */
-    static class Flaky implements CustomerDirectory {
+    static class Flaky implements CustomerService {
 
         static final AtomicInteger attempts = new AtomicInteger();
         static volatile int failuresBeforeSuccess = 0;
         static volatile boolean permanentFailure = false;
 
         @Retryable(
-                includes = CustomerDirectoryUnavailableException.class,
+                includes = CustomerServiceUnavailableException.class,
                 maxRetries = 2, delay = 30, jitter = 10, multiplier = 2.0, maxDelay = 200,
                 timeout = 2000)
         @Override
@@ -118,7 +118,7 @@ class RetryPolicyTest {
                 throw new UnknownCustomerException(customerId);
             }
             if (attempt <= failuresBeforeSuccess) {
-                throw new CustomerDirectoryUnavailableException("simulated outage");
+                throw new CustomerServiceUnavailableException("simulated outage");
             }
             return Optional.of(new Customer(customerId, "Test Person",
                     Customer.DueDiligence.COMPLETE));

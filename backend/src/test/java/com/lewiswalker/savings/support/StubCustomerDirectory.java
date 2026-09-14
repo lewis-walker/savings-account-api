@@ -1,7 +1,7 @@
 package com.lewiswalker.savings.support;
 
 import com.lewiswalker.savings.integration.customer.Customer;
-import com.lewiswalker.savings.integration.customer.CustomerDirectory;
+import com.lewiswalker.savings.integration.customer.CustomerService;
 import java.util.Optional;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +22,7 @@ public class StubCustomerDirectory {
 
     @Bean
     @Primary
-    CustomerDirectory stubCustomerDirectory() {
+    CustomerService stubCustomerDirectory() {
         return customerId -> Optional.of(
                 new Customer(customerId, ANY_CUSTOMER_NAME, Customer.DueDiligence.COMPLETE));
     }

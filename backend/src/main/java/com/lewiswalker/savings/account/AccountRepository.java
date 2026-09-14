@@ -12,11 +12,8 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     /**
      * Next free slot in this customer's 1..5 series.
-     *
-     * <p>Advisory only. Under READ COMMITTED two concurrent callers both see the same
-     * committed rows and both get the same answer — that is expected, and the unique
-     * index on (customer_id, sequence_no) is what resolves it. This query picks a
-     * likely-free slot; the database decides who actually gets it.
+     * Allows an optimistic check but isn't authoritative.
+     * A unique index on the table resolves conflicts.
      */
     @Query(value = """
             select coalesce(max(sequence_no), 0) + 1

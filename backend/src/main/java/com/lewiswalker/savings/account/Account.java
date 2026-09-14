@@ -12,11 +12,7 @@ import java.util.UUID;
  * A savings account.
  *
  * <p>Append-only in this scope: nothing updates an account, so there is no optimistic
- * locking, no updated_at and no update path. Amendment and closure are deliberately out
- * of scope; see DECISIONS.md.
- *
- * <p>No Lombok: its generated equals/hashCode and toString touch every field, which on a
- * JPA entity triggers lazy loading at unpredictable moments.
+ * locking, no updated_at and no update path.
  */
 @Entity
 @Table(name = "account")
