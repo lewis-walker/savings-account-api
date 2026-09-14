@@ -3,15 +3,10 @@ package com.lewiswalker.savings.account.api;
 import com.lewiswalker.savings.account.AccountView;
 import com.lewiswalker.savings.account.AccountService;
 import com.lewiswalker.savings.account.AccountNotFoundException;
-import com.lewiswalker.savings.idempotency.IdempotencyExceptions;
 import com.lewiswalker.savings.idempotency.IdempotencyKey;
-import com.lewiswalker.savings.idempotency.IdempotencyRecord;
-import com.lewiswalker.savings.idempotency.IdempotencyStore;
-import com.lewiswalker.savings.idempotency.RequestFingerprint;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,11 +26,11 @@ public class AccountController {
     public static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
 
     private final AccountService accounts;
-    private final IdempotencyStore idempotency;
+    private final IdempotentAccountOpening opening;
 
-    public AccountController(AccountService accounts, IdempotencyStore idempotency) {
+    public AccountController(AccountService accounts, IdempotentAccountOpening opening) {
         this.accounts = accounts;
-        this.idempotency = idempotency;
+        this.opening = opening;
     }
 
     /**
@@ -50,48 +45,7 @@ public class AccountController {
             @RequestHeader(value = IDEMPOTENCY_HEADER, required = false)
             @IdempotencyKey String idempotencyKey,
             @Valid @RequestBody OpenAccountRequest request) {
-
-        UUID customerId = customerId(caller);
-
-        if (idempotencyKey == null) {
-            return created(accounts.open(customerId, request.nickname()));
-        }
-        String fingerprint = RequestFingerprint.of(customerId.toString(), request.nickname());
-        Optional<IdempotencyRecord> existing =
-                idempotency.claim(customerId, idempotencyKey, fingerprint);
-
-        if (existing.isPresent()) {
-            return replay(existing.get(), idempotencyKey, fingerprint, customerId);
-        }
-
-        AccountView account;
-        try {
-            account = accounts.open(customerId, request.nickname());
-        } catch (RuntimeException e) {
-            // Nothing committed, so a genuine retry should not be locked out.
-            idempotency.release(customerId, idempotencyKey);
-            throw e;
-        }
-        idempotency.complete(customerId, idempotencyKey, fingerprint, account.id());
-        return created(account);
-    }
-
-    /** Rebuilt from the stored account id, so the record stays an identifier. */
-    private ResponseEntity<AccountResponse> replay(IdempotencyRecord record, String key,
-                                                   String fingerprint, UUID customerId) {
-        if (!record.matches(fingerprint)) {
-            throw new IdempotencyExceptions.KeyReused(key);
-        }
-        if (record.state() == IdempotencyRecord.State.IN_PROGRESS) {
-            throw new IdempotencyExceptions.InProgress(key);
-        }
-        return accounts.findById(UUID.fromString(record.accountId()))
-                .filter(account -> account.customerId().equals(customerId))
-                .map(account -> ResponseEntity
-                        .created(URI.create("/accounts/" + account.id()))
-                        .body(AccountResponse.of(account)))
-                // Unreachable - nothing deletes accounts - but better than replaying a 201.
-                .orElseThrow(() -> new AccountNotFoundException(UUID.fromString(record.accountId())));
+        return created(opening.open(customerId(caller), request.nickname(), idempotencyKey));
     }
 
     private static ResponseEntity<AccountResponse> created(AccountView account) {
