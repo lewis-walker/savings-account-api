@@ -8,11 +8,11 @@ type AuthState = {
 /**
  * The access token lives here, in memory, and nowhere else.
  *
- * <p>Anything in `localStorage` is readable by any script running on the page
+ * <p>Anything in `localStorage` is readable by any script running on the page.
  * Memory is cleared when the tab closes and is not reachable from an injected script in the same way.
  *
  * <p>The cost is that a page refresh signs you out, because the token is
- * gone. In production there would bea refresh token in an `httpOnly`, `SameSite` cookie —
+ * gone. In production there would be a refresh token in an `httpOnly`, `SameSite` cookie —
  * which scripts can't read — used to mint a new access token silently on load.
  * That is described in DECISIONS.md rather than built, and the 401 handling in the API
  * layer is where it would attach.
