@@ -26,11 +26,9 @@ create table account (
     -- 1..5 See note 1 above.
     sequence_no     smallint     not null,
 
-    -- Optimistic locking, for the update path this service does not yet have.
-    version         bigint       not null default 0,
-
+    -- No version or updated_at: nothing amends an account in this scope, so optimistic
+    -- locking and a modification timestamp would be columns that never change.
     created_at      timestamptz  not null default now(),
-    updated_at      timestamptz  not null default now(),
 
     constraint account_within_cap
         check (sequence_no between 1 and 5),

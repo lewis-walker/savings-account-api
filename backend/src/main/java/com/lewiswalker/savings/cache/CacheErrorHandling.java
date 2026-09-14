@@ -6,31 +6,11 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 
 /**
- * Swallows cache failures so the application survives Redis being unwell.
+ * Swallows cache failures, so Redis being unwell does not make it a required dependency.
+ * Spring's default handler rethrows.
  *
- * <p>This is the single most important class in the package, and its absence is the
- * most common way a cache turns an optional dependency into a mandatory one. Spring's
- * default is {@code SimpleCacheErrorHandler}, which <b>rethrows</b>: Redis goes down,
- * every cached read throws, and an application that would have worked perfectly well
- * against Postgres returns 500s instead. The cache was supposed to make things faster
- * and it has made them unavailable.
- *
- * <p>So every failure here falls through to the real source. The cache sits on the
- * latency path and never on the correctness path — that is the whole contract, and this
- * is where it is enforced rather than asserted.
- *
- * <p>Logged at warn, not error: a cache miss caused by an outage is degraded service,
- * not a failure, and paging someone at three in the morning for something the system is
- * already handling correctly is how alerts get ignored. A sustained rate of these is
- * worth an alert; any individual one is not.
- *
- * <p><b>And the summary rather than the stack trace.</b> These fire once per cache
- * operation, so during an outage that is once or twice per request across the whole
- * fleet. Three requests against a stopped Redis produced 344 stack frames here — at real
- * traffic that is a log flood that costs money in an aggregator and buries everything
- * worth reading at precisely the moment somebody is reading logs. The stack is available
- * at debug for anyone who needs it; the message and the cache name are what identify the
- * problem, and they are always there.
+ * <p>Warn rather than error, and the summary rather than the stack: these fire once per
+ * cache operation, so an outage would otherwise flood the log with the same trace.
  */
 public class CacheErrorHandling implements CacheErrorHandler {
 
@@ -45,18 +25,16 @@ public class CacheErrorHandling implements CacheErrorHandler {
 
     @Override
     public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
-        // The write already succeeded; only the cache update failed. The entry will be
-        // read from the source next time, which is correct, just slower.
+        // The write succeeded; only the cache update failed. Next read goes to the
+        // source, which is correct, just slower.
         log.warn("cache write failed on '{}': {}", cache.getName(), summarise(exception));
         log.debug("cache write failure detail", exception);
     }
 
     @Override
     public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
-        // Worth more attention than the others: a failed eviction can leave a stale
-        // entry until its TTL expires. It is survivable here only because every cache
-        // in this application has a short TTL. An eviction-based cache with no TTL
-        // would be genuinely wrong to swallow.
+        // Louder than the others: a failed eviction leaves a stale entry until the
+        // TTL expires. Survivable only because every cache here has a short one.
         log.warn("cache eviction failed on '{}' - entry may be stale until it expires: {}",
                 cache.getName(), summarise(exception));
         log.debug("cache eviction failure detail", exception);

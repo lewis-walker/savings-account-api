@@ -1,24 +1,16 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.numbering;
 
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
- * The New Zealand bank account number format: {@code BB-bbbb-AAAAAAA-SSS}
- * — two digits of bank, four of branch, seven of account base, three of suffix.
+ * The New Zealand account number format, {@code BB-bbbb-AAAAAAA-SSS}, with the standard
+ * modulus-11 check. The weight table below is the default factor, verified against a
+ * published valid number (01-0902-0068389-000, whose weighted sum is 176 = 16 x 11).
+ * Bank 99 is deliberately unregistered.
  *
- * <p>Numbers satisfy the standard NZ modulus-11 check. The weights below are the
- * default factor used by most banks for an account base under 990000, verified
- * against a published valid number (01-0902-0068389-000, whose weighted sum is
- * 176, and 176 mod 11 is 0). Bank 99 is deliberately not a registered New Zealand
- * bank ID: the numbers are structurally valid but cannot be mistaken for an account
- * at a real institution.
- *
- * <p>TODO: a real issuer holds registered bank and branch codes from Payments NZ and
- * selects its weight factor accordingly — several banks use different weights and a
- * modulus of 10, and bank 31 skips the check entirely. Only the default algorithm is
- * implemented, which is the one our own numbers use. Inbound numbers from other banks
- * would need the full table.
+ * <p>TODO: other banks use different weights and a modulus of 10, and bank 31 skips the
+ * check. Only the default factor is implemented, which is the one our own numbers use.
  */
 @Component
 public class NzAccountNumberFormat {
@@ -48,22 +40,11 @@ public class NzAccountNumberFormat {
     /** Five digits of body, leaving the sixth to be solved as the check digit. */
     private static final long MAX_BODY_EXCLUSIVE = 99_000;
 
-    /**
-     * Formats one sequence value as an account number.
-     *
-     * <p>Empty when the checksum solves to 10, which is not a digit. Roughly one
-     * sequence value in eleven has no issuable number; the real scheme has the same
-     * hole, and the only thing to do about it is take the next value.
-     *
-     * @return the account number, or empty when this value cannot be issued
-     */
+    /** @return the account number, or empty when the checksum solves to 10 */
     public Optional<String> format(long seed) {
         if (seed < 0) {
             throw new IllegalArgumentException("sequence value must not be negative");
         }
-        // Integer arithmetic throughout. An earlier version used Math.pow, which is
-        // floating point for an integer power, and wrapped silently on overflow
-        // instead of refusing.
         if (seed >= MAX_BODY_EXCLUSIVE) {
             throw new IllegalStateException(
                     "account number range for branch %s-%s is exhausted at %d numbers"
@@ -83,10 +64,11 @@ public class NzAccountNumberFormat {
         return Optional.of("%s-%s-%s-%s".formatted(BANK_ID, BRANCH, base, SUFFIX));
     }
 
-    /** Validates any NZ number that uses the default weight factor. */
-    public boolean isValid(String bank, String branch, String base, String suffix) {
+    /** Whether the number is valid <em>under the default weight factor</em>. */
+    public boolean isValidUnderDefaultFactor(String bank, String branch, String base,
+                                             String suffix) {
         if (Integer.parseInt(base) >= MAX_BASE_EXCLUSIVE) {
-            return false;   // a different weight factor applies; not our numbers
+            return false;   // a different factor applies above this
         }
         return weightedSum(bank, branch, base, suffix) % MODULUS == 0;
     }

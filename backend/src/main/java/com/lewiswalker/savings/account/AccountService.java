@@ -22,13 +22,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class AccountService {
 
-    /** "A customer cannot create more than 5 accounts." */
     public static final int ACCOUNTS_PER_CUSTOMER = 5;
 
     /**
-     * Contention retries. Bounded at the cap: a customer has at most five slots, so
-     * after five losses there is genuinely nothing left to win, and an unbounded loop
-     * against a full customer would just spin.
+     * Bounded at the cap, and that is the reason rather than a coincidence. Each loss
+     * means the slot this attempt targeted was taken by someone who committed, so the
+     * targets advance 1, 2, 3... Losing this many times means every slot is gone.
      */
     private static final int MAX_ATTEMPTS = ACCOUNTS_PER_CUSTOMER;
 
@@ -39,67 +38,43 @@ public class AccountService {
     private final OffensiveNicknameChecker nicknameChecker;
     private final CustomerDirectory customers;
     private final AuditLog auditLog;
+    private final AccountCacheWarmer cacheWarmer;
 
-    /**
-     * One transaction per attempt.
-     *
-     * <p>Programmatic rather than {@code @Transactional}, so the boundary is visible at
-     * the call site and does not depend on the call crossing a proxy. REQUIRES_NEW so an
-     * attempt is isolated from any transaction the caller already has: joining one would
-     * mean a constraint violation here aborted the caller's transaction too.
-     */
+    /** One transaction per attempt; see DECISIONS.md for why it is not @Transactional. */
     private final TransactionTemplate transaction;
 
     public AccountService(AccountWriter writer, AccountRepository repository,
                           OffensiveNicknameChecker nicknameChecker,
                           CustomerDirectory customers, AuditLog auditLog,
+                          AccountCacheWarmer cacheWarmer,
                           PlatformTransactionManager transactionManager) {
         this.writer = writer;
         this.repository = repository;
         this.nicknameChecker = nicknameChecker;
         this.customers = customers;
         this.auditLog = auditLog;
+        this.cacheWarmer = cacheWarmer;
         this.transaction = new TransactionTemplate(transactionManager);
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
-     * Opens an account for the given customer.
-     *
-     * <p>Not transactional. The retry below only works because each attempt opens and
-     * closes its own transaction — Postgres aborts one when a constraint fires, so a
-     * second attempt inside the same transaction could not run at all.
-     *
      * @param customerId from the authenticated principal, never from the request body
-     * @throws UnknownCustomerException      the master has no such customer
-     * @throws CustomerNotVerifiedException  due diligence is not complete
+     * @throws UnknownCustomerException     the master has no such customer
+     * @throws CustomerNotVerifiedException due diligence is not complete
      */
     public AccountView open(UUID customerId, String nickname) {
-        // Cheap and local first: a rejected nickname should not cost a remote call.
-        // Safe to order it this way because the customer is the caller themselves, so
-        // an early answer tells them nothing they do not already know about themselves.
+        // Local and cheap before the remote lookup.
         nicknameChecker.check(nickname);
 
-        // The name on the account comes from the verified customer record, never from
-        // the request. Under AML/CFT an account is opened for a customer whose identity
-        // has already been established; a name asserted by the caller would be an
-        // unverified claim written into a banking record.
+        // The name on the account comes from the verified record, never from the request.
         Customer customer = customers.findById(customerId).orElseThrow(() -> {
-            // A validly signed token whose subject is not a customer: a configuration
-            // or lifecycle problem rather than a customer doing anything wrong, so it
-            // is audited as a refusal *and* logged for engineers, who are the ones who
-            // need to go and fix it.
             auditLog.accountRefused(customerId, "unknown-customer");
             log.warn("token subject {} does not resolve to a customer", customerId);
             return new UnknownCustomerException(customerId);
         });
 
         if (!customer.mayOpenAccounts()) {
-            // Under AML/CFT the bank must not establish the relationship until customer
-            // due diligence is complete. The refusal itself is not a reportable event -
-            // the Act's reports are suspicious activity and prescribed transaction
-            // reports - but it is recorded because a pattern of refusals is a signal in
-            // its own right, and that is only visible if each one left a record.
             auditLog.accountRefused(customerId,
                     "due-diligence-" + customer.dueDiligence().name().toLowerCase());
             throw new CustomerNotVerifiedException(customer.dueDiligence());
@@ -110,66 +85,44 @@ public class AccountService {
                 AccountView opened = transaction.execute(status ->
                         AccountView.of(writer.attemptOpen(customerId, customer.fullName(),
                                 nickname, ACCOUNTS_PER_CUSTOMER)));
+
+                // execute() has returned, so the account is committed.
                 auditLog.accountOpened(customerId, opened.id(), opened.sequenceNo());
+                cacheWarmer.warm(opened);
                 return opened;
             } catch (AccountCapReachedException e) {
-                auditLog.accountRefused(customerId, "account-limit-reached");
-                throw e;
+                throw customerIsFull(customerId);
             } catch (SequenceContendedException e) {
                 log.debug("sequence contended for customer {}, attempt {} of {}",
                         customerId, attempt, MAX_ATTEMPTS);
             }
         }
-        // Every slot we tried was taken by someone else, and we never saw the cap
-        // constraint. Concurrency this heavy on one customer is worth knowing about.
         log.warn("gave up opening an account for customer {} after {} contended attempts",
                 customerId, MAX_ATTEMPTS);
+        throw customerIsFull(customerId);
+    }
+
+    private AccountCapReachedException customerIsFull(UUID customerId) {
         auditLog.accountRefused(customerId, "account-limit-reached");
-        // AccountCapReachedException really is the right answer here, which is not
-        // obvious. Each loss means the slot this attempt targeted was taken by someone
-        // who committed, and the next read returns a higher maximum - so the targets
-        // advance 1, 2, 3, ... Losing MAX_ATTEMPTS times therefore means every slot up to
-        // the cap is gone, and the customer is genuinely full. The loop bound and the cap
-        // are the same number for exactly this reason.
-        throw new AccountCapReachedException(customerId, ACCOUNTS_PER_CUSTOMER);
+        return new AccountCapReachedException(customerId, ACCOUNTS_PER_CUSTOMER);
     }
 
     /**
-     * One account by id.
-     *
-     * <p>Cached because the brief asks for it. It is worth being honest that it buys
-     * nothing: this is a primary-key lookup on a narrow table, which Postgres answers
-     * from its own buffer pool in microseconds, and Redis adds a network hop to it.
-     * See {@link CacheConfig} for the full argument, and {@link AccountCacheWarmer} for
-     * the part that makes it <em>correct</em> rather than merely present.
-     *
-     * <p>Note the absence of an ownership check here. The cache is keyed by account id
-     * alone, so one entry serves whoever asks; the caller's right to see it is decided
-     * afterwards, against the returned value. Keying the cache per caller would be a
-     * cache with a hit rate of nearly zero.
+     * Not scoped to a customer: the cache is keyed by account id alone, and the caller's
+     * right to see the result is decided afterwards against the returned value.
      */
     @Cacheable(value = CacheConfig.ACCOUNTS, key = "#id",
-            // Evaluated on every call, so moving the switch takes effect on the next
-            // request rather than the next deployment. A configuration property would
-            // need a restart, which is the last thing wanted mid-incident.
             condition = "@featureFlags.redisCacheEnabled()",
-            // Absence is not cached (disableCachingNullValues), and without this Spring
-            // still attempts the write and the cache rejects it - so every request for an
-            // account that does not exist logged a cache failure against a perfectly
-            // healthy Redis. Note #result is the value inside the Optional, not the
-            // Optional, so this is the spelling that works.
+            // #result is the value inside the Optional, so this is the spelling that
+            // works. Without it, a lookup that finds nothing attempts a write the cache
+            // refuses and logs a failure that is not one.
             unless = "#result == null")
     @Transactional(readOnly = true)
     public Optional<AccountView> findById(UUID id) {
         return repository.findById(id).map(AccountView::of);
     }
 
-    /**
-     * Not cached, deliberately. A per-customer list is invalidated by any account
-     * opening, and the customers who read it most are the ones whose lists change most.
-     * A cache whose entries are evicted about as often as they are read is pure overhead
-     * with an invalidation bug waiting in it.
-     */
+    /** Not cached: a per-customer list is invalidated by any opening. */
     @Transactional(readOnly = true)
     public List<AccountView> findForCustomer(UUID customerId) {
         return repository.findByCustomerIdOrderBySequenceNo(customerId).stream()

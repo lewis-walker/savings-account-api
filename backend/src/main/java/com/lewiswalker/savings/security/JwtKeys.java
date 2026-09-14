@@ -23,24 +23,9 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 /**
- * The signing key, generated at startup.
- *
- * <p>Generated rather than configured so that {@code docker compose up} works with
- * nothing to set up, and so that no private key is ever committed. A demo key in a
- * repository is still a private key in a repository: a static analysis finding, and a
- * bad look regardless of the label on it.
- *
- * <p>What this costs, plainly: the key changes on restart, so tokens do not survive
- * one, and running more than one instance would give each its own key. Both are fine
- * for a demo and neither is fine for production.
- *
- * <p><b>How this is really done.</b> The private key lives in an HSM or a KMS and never
- * leaves it — you hand the payload over and get a signature back, so the key material
- * is never in application memory at all. Rotation works through the {@code kid} header:
- * the JWKS endpoint publishes both the outgoing and incoming keys during a rollover, so
- * tokens signed by the old key keep verifying while new tokens use the new one, and the
- * old key is withdrawn only after the longest possible token lifetime has elapsed.
- * Deliberately not built — see DECISIONS.md on building the minimum.
+ * The signing key, generated at startup, so {@code docker compose up} needs no setup and
+ * no private key is committed. The cost is that tokens do not survive a restart and a
+ * second instance would have its own key. Production key management is in DECISIONS.md.
  */
 @Configuration
 public class JwtKeys {
@@ -53,8 +38,8 @@ public class JwtKeys {
         KeyPair keyPair = generate();
         this.rsaKey = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
                 .privateKey((RSAPrivateKey) keyPair.getPrivate())
-                // Present from the start, because a rotation story that has to invent
-                // key identifiers later is a migration rather than a rollover.
+                // Present from the start: adding kid later is a migration, not a
+                // rollover.
                 .keyID(UUID.randomUUID().toString())
                 .build();
     }

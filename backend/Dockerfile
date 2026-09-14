@@ -3,12 +3,17 @@
 # Multi-stage, so a reviewer needs Docker and nothing else — no JDK, no Gradle.
 # The build happens in the first stage and is thrown away; only a JRE and the
 # application reach the final image.
+#
+# Every base is pinned by digest, not by tag. `21-jre` is a floating tag: it moved
+# from Ubuntu Noble to 26.04 without anything here changing. The digests are manifest
+# lists, so amd64 and arm64 both still resolve. This needs Renovate to stay current -
+# see DECISIONS.md.
 
 # ----------------------------------------------------------------------------
 # Build. Uses the Gradle wrapper rather than a gradle base image, so the version
 # that builds here is byte-for-byte the one pinned in gradle-wrapper.properties.
 # ----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:21-jdk@sha256:1f79c73404fb0cccf9a3459eda22892f368d994b1028d6fb1ae871c1f49749a6 AS build
 WORKDIR /build
 
 # Build scripts first, sources second, so a source-only change does not invalidate
@@ -32,7 +37,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 # ----------------------------------------------------------------------------
 # Split the jar into layers ordered by how often they change.
 # ----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre AS extract
+FROM eclipse-temurin:21-jre@sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda AS extract
 WORKDIR /extract
 COPY --from=build /build/build/libs/*.jar fat.jar
 # Into a subdirectory: extract refuses a destination that is not empty, and the
@@ -43,21 +48,13 @@ RUN java -Djarmode=tools -jar fat.jar extract \
 # ----------------------------------------------------------------------------
 # Runtime.
 # ----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre AS runtime
+FROM eclipse-temurin:21-jre@sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda AS runtime
 
-# curl is here only so Compose can health-check the container. It is a
-# compose-ism, not a production requirement: Kubernetes performs httpGet probes
-# from outside the container and needs nothing installed inside it, which is why
-# a production image would be distroless — no shell, no package manager, far less
-# to patch.
-# One package, so that compose can health-check the container. Unpinned, which is a
-# reproducibility hole in an image whose whole claim is that it builds from nothing -
-# a production build would pin the version or, better, use a distroless base and let
-# the orchestrator probe from outside, needing nothing installed at all.
-RUN apt-get update \
- && apt-get install --yes --no-install-recommends curl \
- && rm -rf /var/lib/apt/lists/* \
- && groupadd --system --gid 10001 app \
+# No package installed: curl ships in this base, and the digest pin makes that a
+# fact rather than a hope. It is wanted only for the Compose healthcheck, which is a
+# compose-ism - Kubernetes probes from outside the container and needs nothing in it.
+# A bump that dropped curl would fail the healthcheck loudly, at the bump.
+RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --home-dir /app app
 
 WORKDIR /app

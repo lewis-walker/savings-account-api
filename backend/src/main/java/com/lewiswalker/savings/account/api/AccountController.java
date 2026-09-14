@@ -1,5 +1,8 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.api;
 
+import com.lewiswalker.savings.account.AccountView;
+import com.lewiswalker.savings.account.AccountService;
+import com.lewiswalker.savings.account.AccountNotFoundException;
 import com.lewiswalker.savings.idempotency.IdempotencyExceptions;
 import com.lewiswalker.savings.idempotency.IdempotencyRecord;
 import com.lewiswalker.savings.idempotency.IdempotencyStore;
@@ -35,24 +38,10 @@ public class AccountController {
     }
 
     /**
-     * Opens a savings account for the authenticated customer.
+     * 201 rather than 202: the account is committed before this returns.
      *
-     * <p>Answers 201 with a Location header. Not 202: the account is committed before this
-     * returns. That distinction is what lets the optimistic front end stay honest — it
-     * shows a pending row because the row is pending, and the server never claims a
-     * durability it does not have. Were account numbers allocated by a core banking
-     * platform over a batch window, this would become 202 and a pending resource, and the
-     * front end would not have to change.
-     *
-     * <h2>{@code Idempotency-Key}</h2>
-     *
-     * <p>Optional, and honoured when present. A client that retries after a timeout cannot
-     * otherwise tell the server "this is the same request I already sent", and against a
-     * cap of five accounts a lost response would silently cost the customer a slot.
-     *
-     * <p>Optional rather than required so the API can be exercised with curl without
-     * ceremony. A production API would require it on every unsafe method, because the
-     * protection is only worth what the least careful client does.
+     * <p>{@code Idempotency-Key} is optional and honoured when present. A production API
+     * would require it on unsafe methods.
      */
     @PostMapping
     public ResponseEntity<AccountResponse> open(
@@ -66,9 +55,8 @@ public class AccountController {
             return created(accounts.open(customerId, request.nickname()));
         }
         if (!IdempotencyStore.isAcceptable(idempotencyKey)) {
-            // Refused rather than ignored. Silently dropping a malformed key would leave
-            // the caller believing they had protection they do not have, which is worse
-            // than not offering it.
+            // Refused, not ignored: silently dropping it leaves the caller believing they
+            // have protection they do not have.
             throw new IdempotencyExceptions.KeyReused(
                     "malformed; expected 8-128 characters of [A-Za-z0-9_-]");
         }
@@ -85,10 +73,7 @@ public class AccountController {
         try {
             account = accounts.open(customerId, request.nickname());
         } catch (RuntimeException e) {
-            // Give the key back: the attempt is local and transactional, so nothing was
-            // committed and a genuine retry should be allowed through. See
-            // IdempotencyStore#release for why this reasoning does not survive a remote
-            // allocator.
+            // Nothing committed, so a genuine retry should not be locked out.
             idempotency.release(customerId, idempotencyKey);
             throw e;
         }
@@ -96,14 +81,7 @@ public class AccountController {
         return created(account);
     }
 
-    /**
-     * Answers a request the server has seen before.
-     *
-     * <p>The original response is reconstructed from the stored account rather than cached
-     * whole. That keeps the stored record to an identifier, and means a replay reflects the
-     * account as it now is rather than as it was — which for an append-only resource is the
-     * same thing, and for anything mutable would need saying out loud.
-     */
+    /** Rebuilt from the stored account id, so the record stays an identifier. */
     private ResponseEntity<AccountResponse> replay(IdempotencyRecord record, String key,
                                                    String fingerprint, UUID customerId) {
         if (!record.matches(fingerprint)) {
@@ -117,9 +95,7 @@ public class AccountController {
                 .map(account -> ResponseEntity
                         .created(URI.create("/accounts/" + account.id()))
                         .body(AccountResponse.of(account)))
-                // The record points at an account that is gone. Nothing deletes accounts,
-                // so this should be unreachable; refusing is still better than replaying a
-                // 201 for something that does not exist.
+                // Unreachable - nothing deletes accounts - but better than replaying a 201.
                 .orElseThrow(() -> new AccountNotFoundException(UUID.fromString(record.accountId())));
     }
 
@@ -129,14 +105,7 @@ public class AccountController {
                 .body(AccountResponse.of(account));
     }
 
-    /**
-     * One account belonging to the authenticated customer.
-     *
-     * <p>The ownership check is not a nicety. Without it this is a textbook insecure
-     * direct object reference: any authenticated customer could read any account by
-     * guessing an identifier. The identifier is a UUID, which makes guessing
-     * impractical, but "hard to guess" is not an authorisation control.
-     */
+    /** 404 rather than 403 for someone else's account: 403 confirms it exists. */
     @GetMapping("/{id}")
     public AccountResponse get(@AuthenticationPrincipal Jwt caller, @PathVariable UUID id) {
         return accounts.findById(id)
@@ -145,14 +114,7 @@ public class AccountController {
                 .orElseThrow(() -> new AccountNotFoundException(id));
     }
 
-    /**
-     * Every account belonging to the authenticated customer.
-     *
-     * <p>Beyond the two operations the brief names. It is here because the cap of five
-     * accounts is not demonstrable without it, and because a customer being unable to
-     * see their own accounts would be a strange product. No identifier is accepted:
-     * the list is scoped by the token, so there is nothing here to enumerate.
-     */
+    /** Beyond the brief's two operations; scoped by the token, so nothing to enumerate. */
     @GetMapping
     public List<AccountResponse> list(@AuthenticationPrincipal Jwt caller) {
         return accounts.findForCustomer(customerId(caller)).stream()
@@ -160,7 +122,7 @@ public class AccountController {
                 .toList();
     }
 
-    /** The subject claim, which is the only place customer identity comes from. */
+    /** The only place customer identity comes from. */
     private static UUID customerId(Jwt caller) {
         return UUID.fromString(caller.getSubject());
     }

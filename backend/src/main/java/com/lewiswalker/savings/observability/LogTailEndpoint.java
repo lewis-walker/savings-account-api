@@ -10,16 +10,11 @@ import org.springframework.stereotype.Component;
 /**
  * Tails the log over HTTP, on the management port.
  *
- * <p>Polling with a sequence cursor rather than server-sent events, and that is worth
- * being straight about. SSE would be a nicer transport, but actuator endpoints are
- * request/response and the management port runs its own context, so streaming from here
- * would mean building a second web layer for a debugging convenience.
- *
- * <p>The deeper reason not to invest further: in production nobody tails a service's own
- * logs over HTTP. They are shipped to Splunk or an ELK stack and read there, with
- * retention, access control and search across every instance. This exists so a reviewer
- * can watch the system behave — correlation ids appearing, a cache falling through when
- * Redis stops — without needing a terminal and {@code docker compose logs}.
+ * <p>Polling with a sequence cursor rather than server-sent events: actuator endpoints
+ * are request/response and the management port runs its own context, so streaming would
+ * mean a second web layer for a debugging convenience. In production these go to a log
+ * aggregator and are read there; this exists so a reviewer can watch the system behave
+ * without a terminal.
  */
 @Component
 @Endpoint(id = "logtail")

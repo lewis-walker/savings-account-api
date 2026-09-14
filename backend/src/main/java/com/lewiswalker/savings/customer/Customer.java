@@ -3,10 +3,7 @@ package com.lewiswalker.savings.customer;
 import java.util.UUID;
 
 /**
- * A customer, as the customer master knows them.
- *
- * <p>Owned by another system. This is a read-only view of someone else's record, which
- * is why there is no setter, no repository and no table.
+ * A customer, as the customer master knows them. Read-only: another system owns it.
  */
 public record Customer(UUID id, String fullName, DueDiligence dueDiligence) {
 

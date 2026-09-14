@@ -13,33 +13,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * One line per request: what was asked, what was answered, how long it took, and who
- * asked.
+ * One line per request: what was asked, what was answered, how long it took, who asked.
+ * A request that succeeds logs nothing on its own, so without this the correlation id
+ * has nowhere to appear.
  *
- * <p>Without this the correlation id is decoration. A successful request logs nothing
- * on its own, so an id that is faithfully placed in the MDC has nowhere to appear, and
- * a support reference that matches no log line is worse than useless. This is the line
- * it matches.
+ * <p>No query string, no headers, no bodies, and the actor as an opaque subject: all
+ * four are where personal data ends up.
  *
- * <p>In a bank it is also an audit record: who did what, when, and what the system
- * said. That shapes what goes in it.
- *
- * <h2>What is deliberately absent</h2>
- *
- * <ul>
- *   <li><b>The query string.</b> Excluded outright rather than filtered. Query
- *       parameters are where personal data ends up by accident, and once a value is in
- *       an access log it is also in every log aggregator downstream.
- *   <li><b>Headers and bodies.</b> The authorization header is a bearer token, and a
- *       request body is the customer's own words.
- *   <li><b>The customer's name.</b> The subject claim identifies the actor well enough
- *       for audit, and an opaque identifier means nothing to anyone reading the log
- *       without database access. That is the property worth having.
- * </ul>
- *
- * <p>Ordered immediately after {@link CorrelationIdFilter} so the id is already in the
- * MDC, and before everything else so a request rejected by the security chain is still
- * recorded — a refused request is precisely the one an auditor wants to see.
+ * <p>Ordered ahead of the security chain so a request refused before it reaches a
+ * controller is still recorded.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
@@ -54,9 +36,7 @@ public class AccessLogFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(request, response);
         } finally {
-            // In a finally block so a request that blows up is still recorded. An
-            // access log with the failures missing from it is an access log that
-            // cannot be trusted.
+            // In a finally, so a request that blows up is still recorded.
             long millis = (System.nanoTime() - startedAt) / 1_000_000;
             log.info("{} {} {} {}ms customer={}",
                     request.getMethod(),

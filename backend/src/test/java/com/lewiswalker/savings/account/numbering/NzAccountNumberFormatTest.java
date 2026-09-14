@@ -1,4 +1,4 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.numbering;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,7 +20,7 @@ class NzAccountNumberFormatTest {
         // 01-0902-0068389-000, from the test suite of an independent NZ account
         // validator. Checking against a number computed by someone else is the only
         // way to know the weight table is right rather than merely self-consistent.
-        assertThat(format.isValid("01", "0902", "00068389", "000")).isTrue();
+        assertThat(format.isValidUnderDefaultFactor("01", "0902", "00068389", "000")).isTrue();
     }
 
     @ParameterizedTest
@@ -31,7 +31,7 @@ class NzAccountNumberFormatTest {
             "01, 0903, 00068389, 000",
     })
     void rejectsAlteredWeightedDigits(String bank, String branch, String base, String suffix) {
-        assertThat(format.isValid(bank, branch, base, suffix)).isFalse();
+        assertThat(format.isValidUnderDefaultFactor(bank, branch, base, suffix)).isFalse();
     }
 
     @Test
@@ -40,8 +40,8 @@ class NzAccountNumberFormatTest {
         // A property of the scheme rather than a defect: the check digit protects the
         // account base, not the product code. Asserted so that nobody later "fixes" the
         // weight table to make a suffix change fail.
-        assertThat(format.isValid("01", "0902", "00068389", "000")).isTrue();
-        assertThat(format.isValid("01", "0902", "00068389", "001")).isTrue();
+        assertThat(format.isValidUnderDefaultFactor("01", "0902", "00068389", "000")).isTrue();
+        assertThat(format.isValidUnderDefaultFactor("01", "0902", "00068389", "001")).isTrue();
     }
 
     @Test
@@ -54,7 +54,7 @@ class NzAccountNumberFormatTest {
             }
             String[] parts = number.split("-");
             assertThat(parts).hasSize(4);
-            assertThat(format.isValid(parts[0], parts[1], parts[2], parts[3]))
+            assertThat(format.isValidUnderDefaultFactor(parts[0], parts[1], parts[2], parts[3]))
                     .as("issued number %s", number)
                     .isTrue();
         }

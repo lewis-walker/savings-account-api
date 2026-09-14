@@ -12,14 +12,9 @@ import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 /**
- * In-process stand-in for the customer master.
- *
- * <p>Seeded from the same identities the demo token endpoint authenticates, so a
- * token's subject always resolves to a customer this directory has heard of.
- *
- * <p>One customer is deliberately left with incomplete due diligence, so the refusal
- * path is reachable in the running system rather than only in a test. A demo where
- * every path succeeds does not show you much.
+ * Stand-in for the customer master, seeded from the same identities the demo token
+ * endpoint authenticates. One customer has incomplete due diligence, so the refusal path
+ * is reachable in the running system.
  */
 @Component
 public class DemoCustomerDirectory implements CustomerDirectory {
@@ -42,14 +37,10 @@ public class DemoCustomerDirectory implements CustomerDirectory {
     /**
      * {@inheritDoc}
      *
-     * <p>The policy is here rather than on the port because how hard to try is a
-     * property of the transport, not of the question being asked.
-     *
-     * <p>It cannot fire against this adapter — an in-process map does not fail
-     * transiently — and it is annotated anyway, because this is the seam the real
-     * adapter drops into and the policy is part of what that seam is for. What it
-     * retries is the point: only unavailability. An unknown customer is a final answer
-     * and retrying it would delay a definite no.
+     * <p>The retry policy is on the adapter, not the port: how hard to try is a property
+     * of the transport. It cannot fire against an in-process map, and is here because the
+     * real adapter takes this place. Only unavailability is retried - an unknown customer
+     * is a final answer, and retrying it would delay a definite no.
      */
     @Cacheable(value = CacheConfig.CUSTOMERS, key = "#customerId",
             condition = "@featureFlags.redisCacheEnabled()",

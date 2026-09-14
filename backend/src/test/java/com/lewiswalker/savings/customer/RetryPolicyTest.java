@@ -84,7 +84,7 @@ class RetryPolicyTest {
     static class Config {
         /**
          * Note the return type is the concrete class, not the interface, and that is
-         * load-bearing. Spring decides whether a bean needs a retry proxy by looking at
+         * not incidental. Spring decides whether a bean needs a retry proxy by looking at
          * the bean's type — for an @Bean method that is the <em>declared return
          * type</em>. Declare it as CustomerDirectory and Spring inspects the interface,
          * finds no @Retryable on it, and quietly creates no proxy: the annotation is

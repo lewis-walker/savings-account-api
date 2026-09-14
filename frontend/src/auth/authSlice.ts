@@ -18,7 +18,7 @@ interface AuthState {
  * gone. The production answer is a refresh token in an `httpOnly`, `SameSite` cookie —
  * which script cannot read at all — used to mint a new access token silently on load.
  * That is described in DECISIONS.md rather than built, and the 401 handling in the API
- * layer is the seam it drops into.
+ * layer is where it would attach.
  */
 const initialState: AuthState = { accessToken: null, email: null };
 

@@ -12,22 +12,14 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 /**
- * Checks a nickname against a blocked list held in a resource file.
+ * Checks a nickname against a blocked list in a resource file.
  *
- * <p>Matching normalises first: lower-cased, then leetspeak folded (0 to o, 1 to l,
- * {@code @} to a), then everything that is not a letter removed — digits included, which
- * is why the folding has to run first. So {@code B a d.W0rd} does not walk past a list
- * containing {@code badword}.
+ * <p>Normalised before matching - lower-cased, leetspeak folded, then non-letters
+ * stripped, in that order - and matched on substrings, which accepts the Scunthorpe
+ * problem as the better trade for a bank.
  *
- * <p>Matching is on substrings, which is the right trade for a bank: a false positive
- * costs the customer a second attempt at a nickname, a false negative puts a slur on a
- * statement. It does mean the Scunthorpe problem is live — a legitimate nickname can be
- * refused because a blocked word appears inside it. Accepted deliberately.
- *
- * <p>TODO: in a real system this list is not a file baked into the artifact. It belongs
- * behind an interface like this one, sourced from a moderation service or a table an
- * operations team can edit without a deployment, and the outcome wants recording for
- * review. The interface is the seam; the file is a stand-in.
+ * <p>TODO: a real list comes from a moderation service or a table operations can edit,
+ * not a file in the artifact. The interface is what a real one implements.
  */
 @Component
 public class ResourceOffensiveNicknameChecker implements OffensiveNicknameChecker {

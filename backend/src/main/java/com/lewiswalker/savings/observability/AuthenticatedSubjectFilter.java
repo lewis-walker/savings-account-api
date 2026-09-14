@@ -13,22 +13,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Copies the authenticated subject onto the request so the access log can find it.
  *
- * <p>This exists because of a timing subtlety worth knowing. The authentication lives
- * in {@code SecurityContextHolder}, which is a {@code ThreadLocal} that Spring Security
- * <em>clears in its own finally block</em> — the container pools threads, so leaving it
- * populated would hand the next request the previous caller's identity.
+ * <p>{@link AccessLogFilter} sits outside the security chain deliberately, so a request
+ * security refuses is still recorded. That puts its finally block after Spring Security
+ * has cleared the {@code SecurityContextHolder} ThreadLocal, and every line would read
+ * {@code customer=-}. This filter runs inside the chain, where the context is still
+ * populated, and puts the subject somewhere request-scoped that outlives it.
  *
- * <p>{@link AccessLogFilter} runs outside the security chain, deliberately, so that a
- * request refused by security is still recorded — a refused request is exactly the one
- * an auditor wants. But that means its finally block runs <em>after</em> Spring
- * Security's, by which point the context is empty, and every line reads
- * {@code customer=-} however authenticated the request was.
- *
- * <p>So this filter runs inside the chain, where the context is still populated, and
- * puts the subject somewhere request-scoped that outlives it.
- *
- * <p>Registered in {@code SecurityConfig} rather than annotated, because its position in
- * the chain is what makes it work.
+ * <p>Registered in {@code SecurityConfig} rather than annotated: its position in the
+ * chain is the whole point.
  */
 public class AuthenticatedSubjectFilter extends OncePerRequestFilter {
 
@@ -40,18 +32,12 @@ public class AuthenticatedSubjectFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(request, response);
         } finally {
-            // Read on the way back out, not on the way in. Authentication happens
-            // further down the chain than this filter sits, so on the way in the
-            // context is empty and every access log line reads customer=-. Reading it
-            // here catches it after the authentication filter has populated it and
-            // before SecurityContextHolderFilter, which wraps this one, clears it.
+            // On the way back out: on the way in, authentication has not happened yet.
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null
                     && authentication.isAuthenticated()
-                    // Anonymous authentication is still "authenticated" as far as the
-                    // interface is concerned, and its name is the literal
-                    // "anonymousUser". Logging that as a customer would be worse than
-                    // logging nothing at all.
+                    // Anonymous authentication is still isAuthenticated(), with the
+                    // literal name "anonymousUser".
                     && !(authentication instanceof AnonymousAuthenticationToken)) {
                 request.setAttribute(SUBJECT_ATTRIBUTE, authentication.getName());
             }

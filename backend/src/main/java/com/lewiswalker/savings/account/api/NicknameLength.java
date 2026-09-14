@@ -1,4 +1,4 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.api;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintValidator;
@@ -13,18 +13,10 @@ import java.lang.annotation.Target;
 /**
  * Length in characters, counted the way the database counts them.
  *
- * <p>{@code @Size} counts {@code String.length()}, which is UTF-16 code units. Postgres
- * {@code char_length} counts characters. For anything outside the Basic Multilingual
- * Plane — emoji, most obviously — those disagree by a factor of two, and the disagreement
- * runs the wrong way: a nickname of three emoji is six units to Bean Validation and three
- * characters to Postgres, so it passes the edge and violates the table.
- *
- * <p>That is not a cosmetic difference. An input error that reaches the database arrives
- * as a constraint violation rather than a 400, and a constraint violation carries the
- * failing row — including the customer's name — into whatever handles it.
- *
- * <p>Counting code points here makes the two agree, so the edge rejects everything the
- * table would.
+ * <p>{@code @Size} counts UTF-16 code units and Postgres {@code char_length} counts
+ * characters, so three emoji are six to one and three to the other. That let input past
+ * the edge that the table then rejected, which arrives as a constraint violation
+ * carrying the failing row.
  */
 @Documented
 @Constraint(validatedBy = NicknameLength.Validator.class)
@@ -55,9 +47,7 @@ public @interface NicknameLength {
 
         @Override
         public boolean isValid(String value, ConstraintValidatorContext context) {
-            // Null passes, as @Size does. The nickname is optional; absence is not a
-            // length problem and @NotNull is the annotation for saying otherwise.
-            if (value == null) {
+            if (value == null) {   // absence is not a length problem, as with @Size
                 return true;
             }
             int characters = value.codePointCount(0, value.length());

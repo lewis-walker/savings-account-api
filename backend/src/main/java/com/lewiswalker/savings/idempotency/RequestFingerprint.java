@@ -6,12 +6,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 /**
- * A digest of what was asked for, so a reused key with different content can be told apart
- * from a genuine retry.
- *
- * <p>A digest rather than the content itself because the content is customer data and this
- * is stored in Redis, where the read cache also lives. There is no reason for a nickname to
- * exist in two places.
+ * A digest of what was asked for, so a key reused with different content can be told from
+ * a retry. A digest rather than the content because this is stored in Redis.
  */
 public final class RequestFingerprint {
 

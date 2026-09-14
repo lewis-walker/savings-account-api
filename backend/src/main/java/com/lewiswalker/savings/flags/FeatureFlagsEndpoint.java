@@ -76,8 +76,7 @@ public class FeatureFlagsEndpoint {
         return Arrays.stream(Feature.values())
                 .filter(feature -> feature.key().equals(key))
                 .findFirst()
-                // Unknown keys are refused rather than defaulted. A flag service that
-                // invents a value for a key nobody defined turns a typo into a silently
+                // Refused rather than defaulted: a typo should not become a silently
                 // disabled feature.
                 .orElseThrow(() -> new IllegalArgumentException("no such flag: " + key));
     }

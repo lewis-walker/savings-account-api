@@ -1,7 +1,6 @@
 package com.lewiswalker.savings.account;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,8 +9,6 @@ import org.springframework.data.repository.query.Param;
 public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     List<Account> findByCustomerIdOrderBySequenceNo(UUID customerId);
-
-    Optional<Account> findByAccountNumber(String accountNumber);
 
     /**
      * Next free slot in this customer's 1..5 series.
