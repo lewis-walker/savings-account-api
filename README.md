@@ -37,7 +37,7 @@ incomplete — account opening is correctly refused).
 |---|---|
 | Open five accounts | the sixth is refused with `409` |
 | Nickname `my badword account` | `422`, and the nickname is not echoed back |
-| Sign in as Alan | `403`; the reason is audited but not disclosed to the caller |
+| Open an account as Alan | `403`; signing in succeeds, opening is refused, and the reason is audited but not disclosed to the caller |
 | `docker compose stop postgres` | `503` in 3s with a reference, not a hang; recovers on its own |
 | `docker compose stop redis` | nothing breaks — the cache is never on the correctness path |
 | Send the same request twice with an `Idempotency-Key` | the second replays the original account; no second account is opened |

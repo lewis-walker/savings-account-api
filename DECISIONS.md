@@ -130,7 +130,8 @@ One assertion required adjustment. The check that a cache entry exists immediate
 | Item | Rationale or next step |
 |---|---|
 | Refresh-token rotation and reuse detection | Belongs to the production identity-provider integration. Existing `401` handling provides the integration point. |
-| Circuit breaker | Timeouts and fail-fast behaviour are implemented; a circuit breaker is the next resilience improvement. |
+| Circuit breaker | Connection-acquisition timeouts and fail-fast behaviour are implemented; a circuit breaker is the next resilience improvement. |
+| Statement timeouts | Only connection acquisition is bounded. A `statement_timeout` on the database role, or a query timeout, is needed to bound a database that is reachable but blocked. |
 | Rate limiting, ETags, CI, and load testing | Outside the assignment requirements. |
 | Core banking adapter | Requires timeouts, a circuit breaker, and reconciliation for allocations whose responses are lost. |
 | Durable audit events | Logger output can be lost when a container terminates. Production requires durable audit recording. |
@@ -141,4 +142,4 @@ One assertion required adjustment. The check that a cache entry exists immediate
 - **Account lifecycle:** Pending, active, dormant, frozen, and closed states are not modelled. New Zealand dormancy requirements would also need to be addressed.
 - **Account-number allocation:** Production numbers must come from the core banking system using a range registered with Payments NZ.
 - **Customer due diligence:** Account opening requires KYC checks, screening, and an approval record.
-- **Operational controls:** Customer-visible changes, including feature-flag changes, require dual approval. The demo’s unauthenticated flags endpoint must be secured before production use.
+- **Operational controls:** Customer-visible changes, including feature-flag changes, require dual approval. The demo’s management endpoints are unauthenticated and must be secured before production use. This covers the feature-flag endpoint and the log tail; the log tail is the more sensitive of the two, because it streams application log lines.
