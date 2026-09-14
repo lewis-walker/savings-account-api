@@ -65,7 +65,7 @@ find the request that produced it.
 | Request body validated | Bean Validation → RFC 7807 | `AccountApiTest` |
 | *Optional:* database unavailable | fast fail, `503` problem document | verified by stopping the container |
 | *Optional:* cache the GET | `CacheConfig` | `CacheBehaviourTest`, `CacheOutageTest` |
-| *Optional:* useful tests | 75 backend, 3 front end | `./gradlew test`, `npm test` |
+| *Optional:* useful tests | chosen for the failures they detect | `./gradlew test`, `npm test` |
 | Built with Gradle or Maven | Gradle | — |
 
 **Two places this reads against the brief, deliberately.** The customer's *name* and
@@ -109,8 +109,8 @@ and what is currently behind it are in one place, with a note on what the real o
 ## Tests
 
 ```bash
-cd backend && ./gradlew test     # 75, against real Postgres and Redis via Testcontainers
-cd frontend && npm test          # 3, covering the optimistic update
+cd backend && ./gradlew test     # against real Postgres and Redis via Testcontainers
+cd frontend && npm test          # covers the optimistic update
 ```
 
 What each test is for, and why it is written the way it is:

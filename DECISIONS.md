@@ -110,7 +110,7 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 ## Testing
 
-Tests are selected for the failures they would detect rather than for coverage. The suite is 75 backend tests and 3 front-end tests.
+Tests are selected for the failures they would detect rather than for coverage.
 
 **Testcontainers rather than an in-memory database.** The account limit is enforced by PostgreSQL constraints and the caching behaviour depends on Redis. A substitute would exercise different behaviour and pass regardless of whether the real constraints were correct.
 
