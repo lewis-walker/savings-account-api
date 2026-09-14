@@ -3,7 +3,6 @@ package com.lewiswalker.savings.account;
 import com.lewiswalker.savings.account.numbering.AccountNumberAllocator;
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -29,13 +28,10 @@ public class AccountWriter {
 
     private final AccountRepository repository;
     private final AccountNumberAllocator accountNumbers;
-    private final ApplicationEventPublisher events;
 
-    public AccountWriter(AccountRepository repository, AccountNumberAllocator accountNumbers,
-                         ApplicationEventPublisher events) {
+    public AccountWriter(AccountRepository repository, AccountNumberAllocator accountNumbers) {
         this.repository = repository;
         this.accountNumbers = accountNumbers;
-        this.events = events;
     }
 
     /**
@@ -76,14 +72,7 @@ public class AccountWriter {
         try {
             // saveAndFlush, not save: the constraint has to fire here, inside the try,
             // rather than at commit time after this method has already returned.
-            Account saved = repository.saveAndFlush(account);
-
-            // Published inside the transaction and delivered only if it commits - see
-            // AccountCacheWarmer. Publishing here rather than from the service keeps the
-            // event tied to the attempt that actually succeeded, so a contended attempt
-            // that is about to be retried never announces an account.
-            events.publishEvent(new AccountOpened(AccountView.of(saved)));
-            return saved;
+            return repository.saveAndFlush(account);
         } catch (DataIntegrityViolationException e) {
             String constraint = ConstraintNames.of(e);
             if (CAP_CONSTRAINT.equals(constraint)) {

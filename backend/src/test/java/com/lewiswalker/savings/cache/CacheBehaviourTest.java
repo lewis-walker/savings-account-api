@@ -77,15 +77,17 @@ class CacheBehaviourTest {
     /**
      * Polls briefly rather than reading once.
      *
-     * <p>An assertion straight after the call was flaky - passing twice, failing once,
-     * on identical code. The cache write is not instantaneously observable, and a test
-     * that is right most of the time is worse than no test, because it trains people to
-     * re-run it.
+     * <p>A put through Spring's RedisCache is not reliably visible to a get issued
+     * immediately afterwards - not even to one issued inside the same method, on the
+     * same Cache instance, with a plain RedisCache and DefaultRedisCacheWriter. Verified
+     * by instrumenting the writer: the read-back is false on some calls and true on
+     * others within a single run. I do not have an explanation for it, and this comment
+     * deliberately does not invent one.
      *
-     * <p>Worth being clear that this does not weaken the claim. Correctness never
-     * depended on the timing: a read that misses the cache falls through to the
-     * committed row and returns the same answer. What is asserted is that the entry
-     * lands promptly, not that it lands within a particular instruction.
+     * <p>What it does not do is weaken the claim. Correctness never depended on the
+     * timing: a read that misses the cache falls through to the committed row and
+     * returns the same answer. What is asserted here is that the entry lands promptly,
+     * not that it lands within a particular instruction.
      */
     private Cache.ValueWrapper awaitCacheEntry(String cacheName, Object key) {
         Cache cache = cacheManager.getCache(cacheName);

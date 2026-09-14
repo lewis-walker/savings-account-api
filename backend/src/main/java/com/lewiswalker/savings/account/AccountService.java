@@ -39,6 +39,7 @@ public class AccountService {
     private final OffensiveNicknameChecker nicknameChecker;
     private final CustomerDirectory customers;
     private final AuditLog auditLog;
+    private final AccountCacheWarmer cacheWarmer;
 
     /**
      * One transaction per attempt.
@@ -53,12 +54,14 @@ public class AccountService {
     public AccountService(AccountWriter writer, AccountRepository repository,
                           OffensiveNicknameChecker nicknameChecker,
                           CustomerDirectory customers, AuditLog auditLog,
+                          AccountCacheWarmer cacheWarmer,
                           PlatformTransactionManager transactionManager) {
         this.writer = writer;
         this.repository = repository;
         this.nicknameChecker = nicknameChecker;
         this.customers = customers;
         this.auditLog = auditLog;
+        this.cacheWarmer = cacheWarmer;
         this.transaction = new TransactionTemplate(transactionManager);
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -110,7 +113,12 @@ public class AccountService {
                 AccountView opened = transaction.execute(status ->
                         AccountView.of(writer.attemptOpen(customerId, customer.fullName(),
                                 nickname, ACCOUNTS_PER_CUSTOMER)));
+
+                // Both of these happen after the account is committed - execute() has
+                // returned, so the transaction is closed. The audit record first: it is
+                // the one that has to exist.
                 auditLog.accountOpened(customerId, opened.id(), opened.sequenceNo());
+                cacheWarmer.warm(opened);
                 return opened;
             } catch (AccountCapReachedException e) {
                 auditLog.accountRefused(customerId, "account-limit-reached");
