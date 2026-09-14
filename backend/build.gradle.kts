@@ -43,6 +43,7 @@ dependencies {
 	// Jackson 3, and declaring the 2.x artifact here quietly put a second, different
 	// Jackson on the test classpath.
 	testImplementation("tools.jackson.core:jackson-databind")
+	testImplementation("org.mockito:mockito-core")
 	testImplementation("org.assertj:assertj-core")
 	testImplementation("org.junit.jupiter:junit-jupiter-params")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")

@@ -2,6 +2,8 @@ package com.lewiswalker.savings.account;
 
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +23,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class LocalSequenceAccountNumberAllocator implements AccountNumberAllocator {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(LocalSequenceAccountNumberAllocator.class);
 
     /** A residue of 10 is not a digit, so about one sequence value in eleven is wasted. */
     private static final int MAX_DRAWS = 32;
@@ -63,7 +68,20 @@ public class LocalSequenceAccountNumberAllocator implements AccountNumberAllocat
     @Override
     public String allocate(UUID customerId, String clientReference) {
         for (int draw = 0; draw < MAX_DRAWS; draw++) {
-            Optional<String> issued = format.format(repository.nextAccountNumberSeed());
+            Optional<String> issued;
+            try {
+                issued = format.format(repository.nextAccountNumberSeed());
+            } catch (IllegalStateException exhausted) {
+                // The branch's number range is used up. Not a transient failure and not
+                // something the caller did: it needs a new range registered with Payments
+                // NZ and configured here, which is an operational event rather than a
+                // request-handling one. Wrapped so it surfaces as a 503 rather than an
+                // unhandled 500, and logged at error because somebody has to act on it.
+                log.error("account number range exhausted; a new branch range is required",
+                        exhausted);
+                throw new AccountNumberAllocationException(
+                        "the account number range is exhausted", exhausted);
+            }
             if (issued.isPresent()) {
                 return issued.get();
             }

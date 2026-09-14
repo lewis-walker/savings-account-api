@@ -92,6 +92,9 @@ class NzAccountNumberFormatTest {
     @Test
     @DisplayName("the branch range refuses rather than wrapping when exhausted")
     void exhaustionIsLoud() {
+        // Refusing matters more than the type: silently wrapping would reissue numbers
+        // that are already in use, and the unique constraint would then reject perfectly
+        // ordinary requests for reasons nobody could explain.
         assertThatThrownBy(() -> format.format(99_000))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("exhausted");
