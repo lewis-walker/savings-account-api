@@ -18,8 +18,9 @@ export default function Accounts() {
       <Card size="3">
         <Flex align="baseline" gap="3" mb="3">
           <Heading size="4">Your savings accounts</Heading>
+          {/* "1 of 5" alone reads as paging through five accounts. It is a limit. */}
           <Badge color={full ? 'red' : 'gray'} ml="auto">
-            {confirmed} of {MAXIMUM_ACCOUNTS}
+            {confirmed} of {MAXIMUM_ACCOUNTS} allowed
           </Badge>
         </Flex>
 
