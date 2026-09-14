@@ -4,6 +4,8 @@ import com.lewiswalker.savings.account.AccountView;
 import com.lewiswalker.savings.account.AccountService;
 import com.lewiswalker.savings.account.AccountNotFoundException;
 import com.lewiswalker.savings.idempotency.IdempotencyKey;
+import com.lewiswalker.savings.idempotency.IdempotencyStore;
+import com.lewiswalker.savings.idempotency.RequestFingerprint;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -26,11 +28,11 @@ public class AccountController {
     public static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
 
     private final AccountService accounts;
-    private final IdempotentAccountOpening opening;
+    private final IdempotencyStore idempotency;
 
-    public AccountController(AccountService accounts, IdempotentAccountOpening opening) {
+    public AccountController(AccountService accounts, IdempotencyStore idempotency) {
         this.accounts = accounts;
-        this.opening = opening;
+        this.idempotency = idempotency;
     }
 
     /**
@@ -45,7 +47,14 @@ public class AccountController {
             @RequestHeader(value = IDEMPOTENCY_HEADER, required = false)
             @IdempotencyKey String idempotencyKey,
             @Valid @RequestBody OpenAccountRequest request) {
-        return created(opening.open(customerId(caller), request.nickname(), idempotencyKey));
+        UUID customerId = customerId(caller);
+        return created(idempotency.once(customerId, idempotencyKey,
+                RequestFingerprint.of(customerId.toString(), request.nickname()),
+                () -> accounts.open(customerId, request.nickname()).id(),
+                id -> accounts.findById(id)
+                        .filter(account -> account.customerId().equals(customerId))
+                        // Unreachable - nothing deletes accounts - but better than replaying a 201.
+                        .orElseThrow(() -> new AccountNotFoundException(id))));
     }
 
     private static ResponseEntity<AccountResponse> created(AccountView account) {
