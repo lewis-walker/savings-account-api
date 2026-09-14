@@ -6,20 +6,20 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
- * One attempt at opening an account, in its own transaction.
+ * One attempt at opening an account.
  *
- * <p>Separate from {@link AccountService} for a reason that is easy to get wrong.
- * Postgres aborts the whole transaction when a constraint fires — every subsequent
- * statement on that connection fails with "current transaction is aborted" until it
- * rolls back. So a retry cannot happen inside the transaction that just failed; it
- * needs a fresh one. That means the retry loop has to sit outside the transactional
- * boundary, and {@code REQUIRES_NEW} has to be crossed through a real proxy — calling
- * a {@code @Transactional} method on {@code this} goes straight to the method and
- * silently does nothing. Two beans, so the proxy is unavoidable.
+ * <p>Not transactional itself. The caller opens the transaction with a
+ * {@code TransactionTemplate}, because the retry in {@link AccountService} needs a new
+ * one per attempt: Postgres aborts a transaction when a constraint fires, and every
+ * statement after that fails until it rolls back.
+ *
+ * <p>This used to be {@code @Transactional(REQUIRES_NEW)} and existed as a separate bean
+ * so the call crossed a Spring proxy — a call to {@code this.attemptOpen()} would have
+ * gone straight to the method and the annotation would have been ignored without
+ * warning. The template removes that problem rather than working around it. The class
+ * stays because one attempt and the policy that repeats it are different jobs.
  */
 @Component
 public class AccountWriter {
@@ -42,7 +42,6 @@ public class AccountWriter {
      * @throws AccountCapReachedException if the customer is already full
      * @throws SequenceContendedException if another request took the slot; caller may retry
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Account attemptOpen(UUID customerId, String customerName, String nickname, int cap) {
         short sequenceNo = repository.nextSequenceNo(customerId);
 

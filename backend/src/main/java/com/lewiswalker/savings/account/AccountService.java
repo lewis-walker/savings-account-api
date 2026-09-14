@@ -14,7 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class AccountService {
@@ -37,21 +40,35 @@ public class AccountService {
     private final CustomerDirectory customers;
     private final AuditLog auditLog;
 
+    /**
+     * One transaction per attempt.
+     *
+     * <p>Programmatic rather than {@code @Transactional}, so the boundary is visible at
+     * the call site and does not depend on the call crossing a proxy. REQUIRES_NEW so an
+     * attempt is isolated from any transaction the caller already has: joining one would
+     * mean a constraint violation here aborted the caller's transaction too.
+     */
+    private final TransactionTemplate transaction;
+
     public AccountService(AccountWriter writer, AccountRepository repository,
                           OffensiveNicknameChecker nicknameChecker,
-                          CustomerDirectory customers, AuditLog auditLog) {
+                          CustomerDirectory customers, AuditLog auditLog,
+                          PlatformTransactionManager transactionManager) {
         this.writer = writer;
         this.repository = repository;
         this.nicknameChecker = nicknameChecker;
         this.customers = customers;
         this.auditLog = auditLog;
+        this.transaction = new TransactionTemplate(transactionManager);
+        this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
      * Opens an account for the given customer.
      *
-     * <p>Note there is no transaction on this method. The retry below only works
-     * because each attempt gets its own; see {@link AccountWriter}.
+     * <p>Not transactional. The retry below only works because each attempt opens and
+     * closes its own transaction — Postgres aborts one when a constraint fires, so a
+     * second attempt inside the same transaction could not run at all.
      *
      * @param customerId from the authenticated principal, never from the request body
      * @throws UnknownCustomerException      the master has no such customer
@@ -91,8 +108,9 @@ public class AccountService {
         SequenceContendedException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                AccountView opened = AccountView.of(writer.attemptOpen(customerId,
-                        customer.fullName(), nickname, ACCOUNTS_PER_CUSTOMER));
+                AccountView opened = transaction.execute(status ->
+                        AccountView.of(writer.attemptOpen(customerId, customer.fullName(),
+                                nickname, ACCOUNTS_PER_CUSTOMER)));
                 auditLog.accountOpened(customerId, opened.id(), opened.sequenceNo());
                 return opened;
             } catch (AccountCapReachedException e) {
