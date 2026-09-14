@@ -11,6 +11,7 @@ import com.lewiswalker.savings.platform.idempotency.RequestFingerprint;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -103,6 +104,6 @@ public class AccountController {
 
     /** The only place customer identity comes from. */
     private static UUID customerId(Jwt caller) {
-        return UUID.fromString(caller.getSubject());
+        return UUID.fromString(Objects.requireNonNull(caller.getSubject()));
     }
 }

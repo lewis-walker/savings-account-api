@@ -6,7 +6,9 @@ This document records assumptions, implementation decisions, and production cons
 
 - **Customer identity comes from the access token.** The API does not accept a customer ID in the request body, preventing callers from opening accounts for other customers.
 - **Customer names come from the Customers API.** Account opening assumes an existing, verified customer record under AML/CFT requirements. The account stores the name as a snapshot for audit purposes; the customer record remains authoritative for the current name. Names are excluded from tokens to avoid exposing them through request-header logging.
-- **Authentication belongs to an external identity provider.** `SecurityConfig` configures the service as a resource server. `TokenController` implements the OAuth 2.0 password grant solely for the demo. This grant is removed in OAuth 2.1, and the controller would be removed in production.
+- **The resource server requires a subject it can read as a customer id.** Customer identity is the `sub` claim, and nothing in Spring Security's default validators requires `sub` to be present, let alone to be a customer id — a correctly signed token from the trusted issuer, with the right audience, can carry an opaque subject or none at all, which is what most identity providers issue. `JwtKeys` validates it during decoding, so such a token is a `401` rather than a request that fails somewhere further in. `SecurityTest` mints tokens that differ from a real one only in the subject, and fails if the check is removed.
+
+**Authentication belongs to an external identity provider.** `SecurityConfig` configures the service as a resource server. `TokenController` implements the OAuth 2.0 password grant solely for the demo. This grant is removed in OAuth 2.1, and the controller would be removed in production.
 - **The service owns one table: accounts.** Customer records and credentials belong to other services.
 
 ## Five-account limit

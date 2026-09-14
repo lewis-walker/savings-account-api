@@ -16,7 +16,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -30,6 +38,12 @@ class SecurityTest {
 
     @Autowired
     private JwtDecoder jwtDecoder;
+
+    @Autowired
+    private JwtEncoder jwtEncoder;
+
+    @Autowired
+    private SecurityProperties properties;
 
     @Test
     @DisplayName("an unmapped path is refused rather than reported - default deny")
@@ -51,6 +65,35 @@ class SecurityTest {
         assertThat(decoded.getAudience()).contains("savings-account-api");
         assertThat(decoded.getIssuer().toString()).isEqualTo("https://savings-account-api.local");
         assertThat(decoded.getClaimAsString("scope")).contains("accounts:read");
+    }
+
+    @Test
+    @DisplayName("a token this service cannot read a customer id from is refused")
+    void subjectMustBeACustomerId() throws Exception {
+        // Correctly signed, right issuer, right audience - and useless, because the
+        // subject is where the customer comes from. An identity provider that issues
+        // opaque or email subjects produces exactly these.
+        for (String subject : new String[] {null, "ada@example.test", "not-a-uuid", "1-1-1-1-1"}) {
+            mockMvc.perform(get("/accounts")
+                            .header("Authorization", "Bearer " + signedWithSubject(subject)))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    /** A token that differs from a real one only in its subject. */
+    private String signedWithSubject(String subject) {
+        Instant now = Instant.now();
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
+                .issuer(properties.issuer())
+                .audience(List.of(properties.audience()))
+                .issuedAt(now)
+                .expiresAt(now.plus(properties.accessTokenTtl()))
+                .id(UUID.randomUUID().toString());
+        if (subject != null) {
+            claims.subject(subject);
+        }
+        return jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(SignatureAlgorithm.RS256).build(), claims.build())).getTokenValue();
     }
 
     @Test

@@ -11,6 +11,7 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -29,6 +30,10 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
  */
 @Configuration
 public class JwtKeys {
+
+    /** Canonical UUID form. UUID.fromString also accepts shorter groups and pads them. */
+    private static final Pattern CUSTOMER_ID = Pattern.compile(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
     private static final int KEY_SIZE = 2048;
 
@@ -73,8 +78,19 @@ public class JwtKeys {
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefaultWithIssuer(properties.issuer()),
                 new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
-                        audience -> audience != null && audience.contains(properties.audience()))));
+                        audience -> audience != null && audience.contains(properties.audience())),
+                // This service reads the subject as the customer id. Nothing in the
+                // default validators requires sub to be present, let alone to be a
+                // customer id, so a correctly signed token from the right issuer can
+                // carry an opaque subject or none at all. Checked here rather than where
+                // it is read: a token this service cannot identify a customer from is
+                // not a token it can serve, which is a 401 and not a failed request.
+                new JwtClaimValidator<String>(JwtClaimNames.SUB, JwtKeys::isCustomerId)));
         return decoder;
+    }
+
+    private static boolean isCustomerId(String subject) {
+        return subject != null && CUSTOMER_ID.matcher(subject).matches();
     }
 
     private static KeyPair generate() {
