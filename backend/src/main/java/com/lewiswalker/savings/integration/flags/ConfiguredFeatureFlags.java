@@ -6,11 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Stand-in for LaunchDarkly: values from configuration, changeable at runtime through
- * {@link #override}. What it lacks is the streaming connection that pushes a change to
- * every instance, which is the operational reason to use a flag service at all.
- */
+// Stand-in for LaunchDarkly: values from configuration, changeable at runtime
 @Component("featureFlags")
 public class ConfiguredFeatureFlags implements FeatureFlags {
 
@@ -27,17 +23,12 @@ public class ConfiguredFeatureFlags implements FeatureFlags {
     }
 
     @Override
-    public boolean isEnabled(Feature feature, FlagContext context) {
-        // Unused: nothing here targets by customer. On the signature anyway, so
-        // adding targeting later does not mean touching every call site.
+    public boolean isEnabled(Feature feature) {
         return values.getOrDefault(feature, feature.defaultValue());
     }
 
     /**
      * Changes a flag without a restart.
-     *
-     * <p>Stands in for someone moving a toggle in a dashboard. In production nothing
-     * calls this — the SDK updates its own store from the streaming connection.
      */
     public void override(Feature feature, boolean value) {
         log.info("feature flag {} set to {}", feature.key(), value);

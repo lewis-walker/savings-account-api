@@ -37,10 +37,8 @@ public class DemoCustomerService implements CustomerService {
     /**
      * {@inheritDoc}
      *
-     * <p>The retry policy is on the adapter, not the port: how hard to try is a property
-     * of the transport. It cannot fire against an in-process map, and is here because the
-     * real adapter takes this place. Only unavailability is retried - an unknown customer
-     * is a final answer, and retrying it would delay a definite no.
+     * This is just a mock implementation, but it's a good example of an integration
+     * where it's worth retrying if there's (potentially temporary) unavailability.
      */
     @Cacheable(value = CacheConfig.CUSTOMERS, key = "#customerId",
             condition = "@featureFlags.redisCacheEnabled()",
@@ -54,9 +52,6 @@ public class DemoCustomerService implements CustomerService {
             jitter = 50,
             multiplier = 2.0,
             maxDelay = 500,
-            // A ceiling on the whole affair. Without it a policy can quietly outlast
-            // the caller's own timeout, and the work is thrown away by someone who has
-            // already given up.
             timeout = 2000)
     @Override
     public Optional<Customer> findById(UUID customerId) {

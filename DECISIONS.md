@@ -94,7 +94,7 @@ Readiness deliberately excludes dependencies so a shared dependency outage does 
 
 A cache kill switch allows operators to bypass a failing cache without deployment. It is evaluated on every call, takes effect on the next request, and cannot fail the request if evaluation fails.
 
-Evaluation accepts a context for future targeting. The context excludes personal data because it is sent to a third-party service.
+A real flag service evaluates per user, so a flag can be on for some people and not others. That is not modelled here: the one flag is an operational kill switch, which is on for everyone or off for everyone, and an unused parameter threaded through every call site to suggest otherwise would be a claim the code does not support. Worth knowing for the real adapter: whatever identifies the user is sent to the flag service and appears in its dashboard, so it takes an opaque id and not a name or an email.
 
 Each flag records its purpose and expected lifetime. Temporary flags should be removed when no longer needed; operational kill switches remain.
 
