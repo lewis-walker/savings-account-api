@@ -1,4 +1,5 @@
-import { Box, Button, Container, Flex, Text, Theme } from '@radix-ui/themes';
+import { MoonIcon, SunIcon } from '@radix-ui/react-icons';
+import { Box, Button, Container, Flex, IconButton, Text, Theme, Tooltip } from '@radix-ui/themes';
 import { useDispatch, useSelector } from 'react-redux';
 import { api } from './api/api';
 import Accounts from './accounts/Accounts';
@@ -22,9 +23,17 @@ export default function App() {
             <Text weight="bold">Savings</Text>
             <Flex align="center" gap="3" ml="auto">
               {signedIn && <SignedInAs />}
-              <Button variant="ghost" size="2" onClick={toggle} aria-label="Switch appearance">
-                {appearance === 'dark' ? 'Light' : 'Dark'}
-              </Button>
+              <Tooltip content={appearance === 'dark' ? 'Switch to light' : 'Switch to dark'}>
+                <IconButton
+                  variant="ghost"
+                  size="2"
+                  onClick={toggle}
+                  // No text, so the control needs naming for anyone not looking at it.
+                  aria-label={appearance === 'dark' ? 'Switch to light appearance' : 'Switch to dark appearance'}
+                >
+                  {appearance === 'dark' ? <SunIcon /> : <MoonIcon />}
+                </IconButton>
+              </Tooltip>
             </Flex>
           </Flex>
         </Box>
