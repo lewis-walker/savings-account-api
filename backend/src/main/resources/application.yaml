@@ -55,6 +55,13 @@ spring:
       timeout: 500ms          # the cache must never be the slow part of a request
       connect-timeout: 500ms
 
+cache:
+  ttl:
+    # Per cache: a customer changes rarely, an account is read far more than it changes.
+    # Each is also how long a stale entry survives a failed eviction.
+    customers: ${CACHE_TTL_CUSTOMERS:5m}
+    accounts: ${CACHE_TTL_ACCOUNTS:2m}
+
 idempotency:
   retention: ${IDEMPOTENCY_RETENTION:24h}   # Stripe uses 24 hours, for the same reasons
 

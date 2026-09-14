@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
  * published valid number (01-0902-0068389-000, whose weighted sum is 176 = 16 x 11).
  * Bank 99 is deliberately unregistered.
  *
- * <p>TODO: other banks use different weights and a modulus of 10, and bank 31 skips the
- * check. Only the default factor is implemented, which is the one our own numbers use.
+ * Why on earth did I do this? Well it was a chance to show some code that wasn't
+ * just spring-plumbing :-)
  */
 @Component
 public class NzAccountNumberFormat {

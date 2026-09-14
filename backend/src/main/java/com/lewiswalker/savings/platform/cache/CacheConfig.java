@@ -19,9 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Two caches: the customer lookup, which is remote and stable, and the account read,
  * which is here because the brief asks. See DECISIONS.md.
  *
- * <p>Typed serializers rather than polymorphic JSON, and nulls are not cached. The
- * declared type is taken at its word - naming the entity here while the code writes
- * AccountView records builds entities out of them, silently.
+ * <p>Typed serializers rather than polymorphic JSON, and nulls are not cached.
  */
 @Configuration
 @EnableCaching(proxyTargetClass = true)
@@ -30,18 +28,11 @@ public class CacheConfig implements CachingConfigurer {
     public static final String CUSTOMERS = "customers";
     public static final String ACCOUNTS = "accounts";
 
-    /**
-     * Short. Every TTL here is also the worst case for how long a stale entry can
-     * survive a failed eviction, which is the number that actually matters.
-     */
-    private static final Duration CUSTOMER_TTL = Duration.ofMinutes(5);
-    private static final Duration ACCOUNT_TTL = Duration.ofMinutes(2);
-
     @Bean
-    RedisCacheManagerBuilderCustomizer cacheConfiguration() {
+    RedisCacheManagerBuilderCustomizer cacheConfiguration(CacheTtlProperties ttl) {
         return builder -> builder
-                .withCacheConfiguration(CUSTOMERS, typed(Customer.class, CUSTOMER_TTL))
-                .withCacheConfiguration(ACCOUNTS, typed(AccountView.class, ACCOUNT_TTL));
+                .withCacheConfiguration(CUSTOMERS, typed(Customer.class, ttl.customers()))
+                .withCacheConfiguration(ACCOUNTS, typed(AccountView.class, ttl.accounts()));
     }
 
     @Override

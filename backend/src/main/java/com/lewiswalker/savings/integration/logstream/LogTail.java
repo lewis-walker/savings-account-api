@@ -22,13 +22,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class LogTail {
-
-    /** Small enough that it cannot matter, large enough to see what just happened. */
-    /**
-     * The same target width as {@code logging.pattern.console}, so a logger name
-     * abbreviates the same way in both. That pattern also pads and truncates to a fixed
-     * column, which a tail that scrolls does not need.
-     */
+    // Magic numbers but I don't want to over-engineer a mock thing!
     private static final Abbreviator ABBREVIATOR = new TargetLengthBasedClassNameAbbreviator(39);
 
     private static final int CAPACITY = 500;

@@ -25,10 +25,6 @@ public class AuditLog {
 
     /**
      * An account resolved for a customer who does not own it.
-     *
-     * <p>At error, unlike the rest of this class: the others record things that happen,
-     * this records something that cannot. Both ids, because without the actual owner the
-     * line says an invariant broke and gives nobody a way to find out how.
      */
     public void ownershipMismatch(UUID expectedCustomerId, UUID actualCustomerId, UUID accountId) {
         audit.error("event=account.ownership-mismatch expected-customer={} actual-customer={} account={}",
@@ -38,8 +34,7 @@ public class AuditLog {
     /**
      * An opening that was refused, and why.
      *
-     * @param reason a stable code, not a sentence. Messages get reworded; anything
-     *               counting or alerting on them then quietly stops working.
+     * @param reason a stable code - a hook for monitoring / alerting tools.
      */
     public void accountRefused(UUID customerId, String reason) {
         audit.info("event=account.refused customer={} reason={}", customerId, reason);

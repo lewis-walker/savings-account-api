@@ -9,12 +9,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * Tails the log over HTTP, on the management port.
- *
- * <p>Polling with a sequence cursor rather than server-sent events: actuator endpoints
- * are request/response and the management port runs its own context, so streaming would
- * mean a second web layer for a debugging convenience. In production these go to a log
- * aggregator and are read there; this exists so a reviewer can watch the system behave
- * without a terminal.
  */
 @Component
 @Endpoint(id = "logtail")

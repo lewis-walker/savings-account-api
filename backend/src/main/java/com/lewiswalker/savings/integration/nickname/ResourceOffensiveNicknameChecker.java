@@ -15,8 +15,7 @@ import org.springframework.stereotype.Component;
  * Checks a nickname against a blocked list in a resource file.
  *
  * <p>Normalised before matching - lower-cased, leetspeak folded, then non-letters
- * stripped, in that order - and matched on substrings, which accepts the Scunthorpe
- * problem as the better trade for a bank.
+ * stripped, in that order - and matched on substrings.
  *
  * <p>TODO: a real list comes from a moderation service or a table operations can edit,
  * not a file in the artifact. The interface is what a real one implements.
