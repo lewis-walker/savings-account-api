@@ -14,9 +14,11 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.core.MethodParameter;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
@@ -26,7 +28,11 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.TransactionException;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -140,6 +146,44 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .map(ApiExceptionHandler::describe)
                 .toList());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+    }
+
+    /**
+     * The same document for a rejected header as for a rejected body field.
+     *
+     * <p>One constraint anywhere on a handler method routes that method's whole
+     * validation through this exception rather than {@link MethodArgumentNotValidException},
+     * so annotating the header brought {@code @Valid @RequestBody} here too. Both are
+     * handled: a constrained parameter names itself, a body names its fields.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(
+            HandlerMethodValidationException e, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "validation-failed",
+                "Validation failed", "One or more fields were not acceptable.");
+        problem.setProperty("errors", e.getParameterValidationResults().stream()
+                .flatMap(ApiExceptionHandler::describe)
+                .toList());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+    }
+
+    private static Stream<Map<String, String>> describe(ParameterValidationResult result) {
+        if (result instanceof ParameterErrors body) {
+            return body.getFieldErrors().stream().map(ApiExceptionHandler::describe);
+        }
+        return result.getResolvableErrors().stream()
+                .map(error -> Map.of("field", nameOf(result.getMethodParameter()),
+                        "message", String.valueOf(error.getDefaultMessage())));
+    }
+
+    /** The header as the caller spelled it, rather than the Java parameter name. */
+    private static String nameOf(MethodParameter parameter) {
+        RequestHeader header = parameter.getParameterAnnotation(RequestHeader.class);
+        if (header != null && !header.value().isEmpty()) {
+            return header.value();
+        }
+        return Optional.ofNullable(parameter.getParameterName()).orElse("request");
     }
 
     /**

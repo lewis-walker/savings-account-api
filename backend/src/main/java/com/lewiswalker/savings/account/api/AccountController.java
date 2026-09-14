@@ -4,6 +4,7 @@ import com.lewiswalker.savings.account.AccountView;
 import com.lewiswalker.savings.account.AccountService;
 import com.lewiswalker.savings.account.AccountNotFoundException;
 import com.lewiswalker.savings.idempotency.IdempotencyExceptions;
+import com.lewiswalker.savings.idempotency.IdempotencyKey;
 import com.lewiswalker.savings.idempotency.IdempotencyRecord;
 import com.lewiswalker.savings.idempotency.IdempotencyStore;
 import com.lewiswalker.savings.idempotency.RequestFingerprint;
@@ -46,7 +47,8 @@ public class AccountController {
     @PostMapping
     public ResponseEntity<AccountResponse> open(
             @AuthenticationPrincipal Jwt caller,
-            @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String idempotencyKey,
+            @RequestHeader(value = IDEMPOTENCY_HEADER, required = false)
+            @IdempotencyKey String idempotencyKey,
             @Valid @RequestBody OpenAccountRequest request) {
 
         UUID customerId = customerId(caller);
@@ -54,13 +56,6 @@ public class AccountController {
         if (idempotencyKey == null) {
             return created(accounts.open(customerId, request.nickname()));
         }
-        if (!IdempotencyStore.isAcceptable(idempotencyKey)) {
-            // Refused, not ignored: silently dropping it leaves the caller believing they
-            // have protection they do not have.
-            throw new IdempotencyExceptions.KeyReused(
-                    "malformed; expected 8-128 characters of [A-Za-z0-9_-]");
-        }
-
         String fingerprint = RequestFingerprint.of(customerId.toString(), request.nickname());
         Optional<IdempotencyRecord> existing =
                 idempotency.claim(customerId, idempotencyKey, fingerprint);

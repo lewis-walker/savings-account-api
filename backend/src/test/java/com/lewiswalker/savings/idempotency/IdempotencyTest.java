@@ -1,6 +1,9 @@
 package com.lewiswalker.savings.idempotency;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -104,10 +107,20 @@ class IdempotencyTest {
     }
 
     @Test
-    @DisplayName("a malformed key is refused, not ignored")
+    @DisplayName("a malformed key is refused as a validation failure, and said to be one")
     void malformedKeyIsRefused() throws Exception {
         // Ignoring it would leave the caller believing they have protection they do not.
-        mockMvc.perform(open("short", "{}")).andExpect(status().isUnprocessableContent());
+        //
+        // The body is asserted, not just the status. This previously answered 422
+        // "Idempotency key reused" for a key never used before, telling the caller to
+        // pick a new one - which, generated the same way, fails the same. A test that
+        // read only the status code passed throughout.
+        mockMvc.perform(open("short", "{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.errors[0].field").value("Idempotency-Key"))
+                .andExpect(jsonPath("$.errors[0].message").value(containsString("8 to 128")))
+                .andExpect(jsonPath("$.detail").value(not(containsString("reused"))));
         assertThat(repository.count()).isZero();
     }
 

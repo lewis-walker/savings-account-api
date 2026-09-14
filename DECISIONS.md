@@ -98,6 +98,8 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 **Retries reuse the idempotency key.** A retry after a timeout therefore represents the same account-opening request and cannot consume another account slot.
 
+**A malformed `Idempotency-Key` is a validation failure, and is answered as one.** It is a constraint on the header parameter, so it produces the same `400` document as a rejected body field, naming `Idempotency-Key`. It previously threw the key-reused exception, which answered `422` telling a caller who had never used the key that it was already used — advice that cannot be followed, because a replacement generated the same way fails identically. Note that one constraint anywhere on a handler method routes that method's whole validation through `HandlerMethodValidationException` rather than `MethodArgumentNotValidException`; `ApiExceptionHandler` describes both parameter and body errors for that reason.
+
 ## Testing
 
 Tests are selected for the failures they would detect rather than for coverage. The suite is 75 backend tests and 3 front-end tests.
