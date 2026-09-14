@@ -11,8 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,7 +43,7 @@ public class TokenController {
     private final JwtEncoder jwtEncoder;
     private final JwtKeys jwtKeys;
     private final SecurityProperties properties;
-    private final byte[] demoPassword;
+    private final String demoPassword;
 
     // @Value rather than a properties record, unlike everything else that is configured:
     // this setting leaves with the class.
@@ -54,20 +52,15 @@ public class TokenController {
         this.jwtEncoder = jwtEncoder;
         this.jwtKeys = jwtKeys;
         this.properties = properties;
-        this.demoPassword = demoPassword.getBytes(StandardCharsets.UTF_8);
+        this.demoPassword = demoPassword;
     }
 
     @PostMapping("/auth/token")
     public TokenResponse issue(@jakarta.validation.Valid @RequestBody TokenRequest request) {
         Optional<DemoIdentities.Identity> identity = DemoIdentities.byEmail(request.email());
 
-        // Compared for an unknown email too, and in constant time. Returning early
-        // would make an unknown email measurably faster than a wrong password, which
-        // turns this endpoint into a way to find out who banks here.
-        boolean passwordMatches = MessageDigest.isEqual(
-                request.password().getBytes(StandardCharsets.UTF_8), demoPassword);
-        if (identity.isEmpty() || !passwordMatches) {
-            // One message for both failures, same reason.
+        if (identity.isEmpty() || !demoPassword.equals(request.password())) {
+            // One message for both, so neither says which was wrong.
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid credentials");
         }
 

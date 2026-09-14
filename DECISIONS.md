@@ -10,7 +10,7 @@ This document records assumptions, implementation decisions, and production cons
 
 **Authentication belongs to an external identity provider.** The token reaches this service from the enterprise IdP by way of the API gateway, which is where single sign-on integrates. The service validates it anyway rather than trusting an upstream header: anything that can reach the port can forge a header, so signature, issuer, audience and subject are checked here regardless of what the gateway already did. `SecurityConfig` and the decoder in `JwtKeys` are that half, and are the part that survives.
 
-`TokenController` is not. It exists so the front end has a sign-in screen to fill in, and so the endpoint is not an open token dispenser. The password is one fixed string shared by every demo identity - a shared secret, compared in constant time, not a credential and not stored - because a service that holds customer passwords is the thing this design exists to avoid. Against a real IdP the controller is deleted outright.
+`TokenController` is not. It exists so the front end has a sign-in screen to fill in, and so the endpoint is not an open token dispenser. The password is one fixed string shared by every demo identity, published in the README - not a credential, not stored, and not hashed, because a service that holds customer passwords is the thing this design exists to avoid. Against a real IdP the controller is deleted outright.
 - **The service owns one table: accounts.** Customer records and credentials belong to other services.
 
 ## Five-account limit

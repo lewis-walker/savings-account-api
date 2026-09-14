@@ -37,7 +37,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
-                // Nothing here carries ambient authority - no cookie, no basic auth -
+                // We don't have a cookie, or basic auth -
                 // so there is nothing for CSRF to protect. A refresh token in a cookie
                 // would need it back on that endpoint.
                 .csrf(AbstractHttpConfigurer::disable)
@@ -46,11 +46,10 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         // No actuator rule: actuator is on the management port and
-                        // managementChain matches it there. A permitAll here would be a
-                        // dead rule that reads like a live one.
+                        // managementChain matches it there.
                         .requestMatchers(HttpMethod.GET, "/.well-known/jwks.json").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/token").permitAll()
-                        // Default deny: a new endpoint is authenticated by omission.
+                        // Default deny.
                         .anyRequest().authenticated())
 
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))

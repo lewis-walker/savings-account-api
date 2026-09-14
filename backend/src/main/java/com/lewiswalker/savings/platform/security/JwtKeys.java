@@ -25,7 +25,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 /**
  * The signing key, generated at startup, so {@code docker compose up} needs no setup and
- * no private key is committed. So not realistic.
+ * no private key is committed. Not realistic.
  */
 @Configuration
 public class JwtKeys {
@@ -63,8 +63,7 @@ public class JwtKeys {
      *
      * <p>Signature and expiry are the defaults. Issuer and audience are not, and both
      * matter: without an audience check this API will happily accept a valid token
-     * that was minted for an entirely different service in the estate, which is how
-     * one compromised service becomes several.
+     * that was minted for an entirely different service.
      */
     @Bean
     JwtDecoder jwtDecoder(SecurityProperties properties) {
@@ -78,12 +77,8 @@ public class JwtKeys {
                 JwtValidators.createDefaultWithIssuer(properties.issuer()),
                 new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
                         audience -> audience != null && audience.contains(properties.audience())),
-                // This service reads the subject as the customer id. Nothing in the
-                // default validators requires sub to be present, let alone to be a
-                // customer id, so a correctly signed token from the right issuer can
-                // carry an opaque subject or none at all. Checked here rather than where
-                // it is read: a token this service cannot identify a customer from is
-                // not a token it can serve, which is a 401 and not a failed request.
+                // This service reads the subject as the customer id.
+                // a token this service cannot identify as from a customer gives a 401.
                 new JwtClaimValidator<String>(JwtClaimNames.SUB, JwtKeys::isCustomerId)));
         return decoder;
     }
