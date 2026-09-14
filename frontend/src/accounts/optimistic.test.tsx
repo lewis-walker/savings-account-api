@@ -12,11 +12,8 @@ import Accounts from './Accounts';
  * The optimistic upsert, which is the only genuinely tricky logic in this app.
  *
  * <p>Two things are asserted that a casual test would miss. That the row appears
- * *before* the server answers — a test which only waits for the final state passes
- * against no optimistic update at all. And that the row is the **same DOM node** before
- * and after reconciliation, which is what proves the React key never changed. If the key
- * were the account id, the node would be replaced when the id arrived, and the user
- * would see a flicker.
+ * *before* the server answers. And that the row is the **same DOM node** before
+ * and after reconciliation, which is what proves the React key never changed.
  */
 function makeStore() {
   return configureStore({
@@ -27,13 +24,6 @@ function makeStore() {
 
 /**
  * A fetch whose account-creation response we resolve by hand.
- *
- * <p>Note it reads the method and headers off the {@link Request}, not off an init
- * object. RTK Query builds a Request and calls {@code fetch(request)} with one
- * argument, so a mock that inspects {@code init.method} sees undefined, treats every
- * call as a GET and answers the creation with the account list. The symptom is a test
- * that fails claiming the optimistic row is not pending - which is true, because it has
- * already been reconciled with an empty array.
  */
 function controllableFetch() {
   let releaseCreate!: (value: { status: number; body: unknown }) => void;
@@ -174,10 +164,7 @@ describe('opening an account', () => {
       await userEvent.click(screen.getByRole('button', { name: /open account/i }));
       await screen.findByText('Holiday fund');
 
-      // A reconnect refetch rebuilds the list and the optimistic row is gone. Before the
-      // upsert, reconciliation was a find-and-merge guarded by `if (row)`, so this was a
-      // silent no-op - and because the mutation does not invalidate, nothing ever
-      // refetched. A committed account simply never appeared.
+      // A reconnect refetch rebuilds the list and the optimistic row is gone.
       store.dispatch(api.util.updateQueryData('listAccounts', undefined, () => []));
 
       releaseCreate({

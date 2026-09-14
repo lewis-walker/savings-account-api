@@ -16,9 +16,7 @@ export default function SignIn() {
     try {
       const result = await signIn({ email, password }).unwrap();
       // Clear the cache before the identity changes. Without this, signing in as a
-      // second customer serves the first customer's accounts from cache - the token is
-      // new, but RTK Query has no reason to refetch a query whose arguments have not
-      // changed. Keyed on sign-in because sign-out is not the only way an identity moves.
+      // second customer serves the first customer's accounts from cache.
       dispatch(api.util.resetApiState());
       dispatch(signedIn({ accessToken: result.access_token, email }));
     } catch {

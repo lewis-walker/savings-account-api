@@ -41,14 +41,14 @@ Account reads are cached to satisfy the brief. The expected benefit is limited: 
 
 The cache implementation provides:
 
-- **Updates after commit.** `AFTER_COMMIT` prevents publishing uncommitted data or allowing a concurrent read to repopulate an evicted entry with pre-commit data.
+- **Updates after commit.** The cache is written once `TransactionTemplate.execute` has returned, so the row is committed before the entry exists. Writing earlier would publish uncommitted data, and evicting earlier would let a concurrent read repopulate the entry from a pre-commit snapshot and pin it until the TTL.
 - **Typed serialisation.** Explicit types avoid the deserialisation risks of generic JSON default typing.
 - **Failure tolerance.** Cache errors do not fail requests. `CacheOutageTest` stops Redis and verifies that the service continues to operate.
 - **Separate cache models.** The cache stores `AccountView` records rather than managed JPA entities.
 
 ## Security
 
-The service is stateless, creates no sessions, and denies access by default. Token validation checks issuer and audience as well as signature and expiry, preventing acceptance of tokens issued for other services.
+The service is stateless, creates no sessions, and denies access by default. Token validation checks issuer, audience and subject as well as signature and expiry, so a token minted for another service, or one this service cannot read a customer id from, is refused at the edge.
 
 Requests for another customer’s account return `404` to avoid disclosing its existence.
 
@@ -74,7 +74,7 @@ This matters because of the account limit. A response lost in transit, followed 
 
 **An account resolved for the wrong customer is an incident, not a 404.** The two ownership checks in `AccountController` look alike and mean opposite things. On `GET /accounts/{id}` the caller chose the id, so a mismatch is expected — someone probing, or a stale link — and the answer is `404`, quietly, because `403` would confirm the account exists. On the opening path the id came from an idempotency entry namespaced by the customer, or from the write that had just created it, so a mismatch cannot happen unless that namespacing or that write is wrong. It is refused with a `500` that says nothing specific, and recorded on the audit logger at error with both customer ids and the account id — without the actual owner, the line reports that an invariant broke and gives nobody a way to find out how. `IdempotencyTest` forces the condition through the store and fails if the check is removed, because a defence nothing exercises is a comment.
 
-**`IdempotencyStore.once` is the only way in, and the primitives are closed.** Claim, perform, then complete or release is an order a caller can get wrong, and getting it wrong opens the second account this exists to prevent. Those three are package-private, so the protocol cannot be reassembled elsewhere, and the record it keeps never leaves the package. The endpoint supplies only what is irreducibly its own: how to do the work, and how to turn the stored id back into an answer. Both the first response and a replayed one are built by that same function, so they cannot drift apart; the cost is one read of a row the request just committed, which the write-through cache has already warmed.
+**`IdempotencyStore.performOnce` is the only way in, and the primitives are closed.** Claim, perform, then complete or release is an order a caller can get wrong, and getting it wrong opens the second account this exists to prevent. Those three are package-private, so the protocol cannot be reassembled elsewhere, and the record it keeps never leaves the package. The endpoint supplies only what is irreducibly its own: how to do the work, and how to turn the stored id back into an answer. Both the first response and a replayed one are built by that same function, so they cannot drift apart; the cost is one read of a row the request just committed, which the write-through cache has already warmed.
 
 A filter was considered and rejected. It would have to buffer and replay the response body, where this stores an account id and rebuilds the answer — a customer name sitting in Redis for the retention period is exactly what the log-hygiene work avoids elsewhere. It sees raw bytes, so the fingerprint would cover whitespace and a reformatted retry would read as a different request. And it would need ordering after authentication to scope keys by customer, adding a second ordering constraint to a filter chain that already has a delicate one.
 
@@ -98,7 +98,7 @@ A cache kill switch allows operators to bypass a failing cache without deploymen
 
 A real flag service evaluates per user, so a flag can be on for some people and not others. That is not modelled here: the one flag is an operational kill switch, which is on for everyone or off for everyone, and an unused parameter threaded through every call site to suggest otherwise would be a claim the code does not support. Worth knowing for the real adapter: whatever identifies the user is sent to the flag service and appears in its dashboard, so it takes an opaque id and not a name or an email.
 
-Each flag records its purpose and expected lifetime. Temporary flags should be removed when no longer needed; operational kill switches remain.
+The one flag here is an operational kill switch, which stays. A release toggle would not: it is debt from the day it is added, and the thing that keeps a codebase free of them is a recorded owner and expiry, which is a flag service's job rather than an enum's.
 
 **An unnamed account is named, but the nickname stays empty.** The brief makes the nickname optional and says nothing about what to show when it is absent, so the response carries a `displayName` alongside it: the nickname where there is one, otherwise `Savings account <n>` from the customer's own account sequence. That sequence is already unique per customer — the unique index guarantees it — so their five accounts are distinguishable rather than five rows reading the same thing.
 
@@ -112,12 +112,12 @@ Derived on the way out, never stored. `nickname` remains the customer's word and
 
 **The form is hidden at the limit rather than disabled.** The badge beside the heading already reads "5 of 5 allowed" in red; a form that cannot be submitted is furniture. The server still refuses a sixth account regardless of what the screen shows - `AccountCapConcurrencyTest` is the proof - so nothing here is an enforcement.
 
-**Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. The application ships no CSS of its own at all. The account list stays a real `<ul>`, so a screen reader announces it as a list with a count rather than as unrelated boxes, and Radix's own `Reset` takes the bullets and padding off it. Components are grouped by feature - `accounts`, `auth`, `ui` for the two pieces both use - so the folder says what the application does rather than what its files are.
+**Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. The application ships no CSS of its own at all. The account list stays a real `<ul>`, so a screen reader announces it as a list with a count rather than as unrelated boxes, and Radix's own `Reset` takes the bullets and padding off it. Components are grouped by feature - `accounts`, `auth`, and `ui` for what neither owns - so the folder says what the application does rather than what its files are.
 
 
 **Access tokens are stored in memory.** This avoids persistent storage in `localStorage`, where injected scripts could retrieve them. The trade-off is that refreshing the page signs the user out. A production implementation would use a refresh token in an `httpOnly` cookie.
 
-**Optimistic rows use the client reference as their React key.** Server-generated account IDs are unavailable when a row is first rendered. Reconciliation merges server values into the existing row while preserving its key. Account creation does not invalidate the list, avoiding a refetch that would rebuild rows and reintroduce flicker.
+**Optimistic rows use the client reference as their React key.** Server-generated account IDs are unavailable when a row is first rendered. Reconciliation replaces the row with the server's version while carrying its key across: a pending row becoming an opened one is a move between members of a union, not one object gaining fields. Account creation does not invalidate the list, avoiding a refetch that would rebuild rows and reintroduce flicker.
 
 **Retries reuse the idempotency key.** A retry after a timeout therefore represents the same account-opening request and cannot consume another account slot.
 
@@ -158,7 +158,7 @@ One assertion required adjustment. The check that a cache entry exists immediate
 
 **Three top-level packages, so the brief is visible from the tree.** `account` is what the assignment asks for. `integration` holds the systems a bank owns elsewhere — account number allocation, the customer master, feature flags, content moderation, log aggregation — each an interface with a stand-in behind it. `platform` holds the machinery every endpoint uses: security, caching, idempotency, observability, auditing, error handling.
 
-**Each port sits with its adapter rather than in the domain.** `CustomerDirectory` is named for the customer master, not for anything in the account model, and keeping it beside `DemoCustomerDirectory` puts the seam and what is behind it in one place. The consequence is that `account` imports from `integration`, which a strict hexagonal reading would object to. The answer is that dependency inversion is satisfied by the domain depending on an interface whose implementation it cannot see; the directory a file sits in is not what inverts it. Enforcing the boundary rather than describing it would mean Spring Modulith or an ArchUnit rule, which is a larger claim than a service this size needs.
+**Each port sits with its adapter rather than in the domain.** `CustomerService` is named for the customer master, not for anything in the account model, and keeping it beside `DemoCustomerService` puts the seam and what is behind it in one place. The consequence is that `account` imports from `integration`, which a strict hexagonal reading would object to. The answer is that dependency inversion is satisfied by the domain depending on an interface whose implementation it cannot see; the directory a file sits in is not what inverts it. Enforcing the boundary rather than describing it would mean Spring Modulith or an ArchUnit rule, which is a larger claim than a service this size needs.
 
 ## Out of scope
 

@@ -15,14 +15,14 @@ import org.springframework.context.annotation.Primary;
  * about one thing, which is most of what the port is for.
  */
 @TestConfiguration
-public class StubCustomerDirectory {
+public class StubCustomerService {
 
     /** Distinctive enough that finding it in a log file cannot be a coincidence. */
     public static final String ANY_CUSTOMER_NAME = "Wilhelmina Featherstonehaugh";
 
     @Bean
     @Primary
-    CustomerService stubCustomerDirectory() {
+    CustomerService stubCustomerService() {
         return customerId -> Optional.of(
                 new Customer(customerId, ANY_CUSTOMER_NAME, Customer.DueDiligence.COMPLETE));
     }

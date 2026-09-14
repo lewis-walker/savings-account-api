@@ -3,7 +3,7 @@ package com.lewiswalker.savings.account;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.lewiswalker.savings.TestcontainersConfiguration;
-import com.lewiswalker.savings.support.StubCustomerDirectory;
+import com.lewiswalker.savings.support.StubCustomerService;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Import;
  * tell the two apart is to make the requests actually overlap.
  */
 @SpringBootTest
-@Import({TestcontainersConfiguration.class, StubCustomerDirectory.class})
+@Import({TestcontainersConfiguration.class, StubCustomerService.class})
 class AccountCapConcurrencyTest {
 
     private static final int CONCURRENT_REQUESTS = 16;
