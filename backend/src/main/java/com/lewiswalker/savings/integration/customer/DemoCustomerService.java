@@ -17,18 +17,18 @@ import org.springframework.stereotype.Component;
  * is reachable in the running system.
  */
 @Component
-public class DemoCustomerDirectory implements CustomerDirectory {
+public class DemoCustomerService implements CustomerService {
 
     private final Map<UUID, Customer> customers;
 
-    public DemoCustomerDirectory() {
+    public DemoCustomerService() {
         this.customers = DemoIdentities.all().stream()
                 .map(identity -> new Customer(
                         identity.customerId(),
                         identity.fullName(),
                         // Alan Turing's due diligence is pending: log in as him to see
                         // an account opening correctly refused.
-                        "alan@example.test".equals(identity.email())
+                        DemoIdentities.ALAN.equals(identity)
                                 ? Customer.DueDiligence.PENDING
                                 : Customer.DueDiligence.COMPLETE))
                 .collect(Collectors.toUnmodifiableMap(Customer::id, Function.identity()));

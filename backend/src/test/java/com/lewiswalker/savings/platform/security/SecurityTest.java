@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 import com.lewiswalker.savings.TestcontainersConfiguration;
+import com.lewiswalker.savings.platform.security.DemoIdentities;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,7 +60,7 @@ class SecurityTest {
     @Test
     @DisplayName("valid credentials mint a token whose subject is the customer id")
     void mintsAToken() throws Exception {
-        Jwt decoded = jwtDecoder.decode(tokenFor("ada@example.test", "demo-password"));
+        Jwt decoded = jwtDecoder.decode(tokenFor(DemoIdentities.ADA.email(), "demo-password"));
 
         assertThat(decoded.getSubject()).isEqualTo("11111111-1111-4111-8111-111111111111");
         assertThat(decoded.getAudience()).contains("savings-account-api");
@@ -99,20 +100,20 @@ class SecurityTest {
     @Test
     @DisplayName("the token carries no personal data")
     void tokenCarriesNoPii() throws Exception {
-        Jwt decoded = jwtDecoder.decode(tokenFor("ada@example.test", "demo-password"));
+        Jwt decoded = jwtDecoder.decode(tokenFor(DemoIdentities.ADA.email(), "demo-password"));
 
         // Tokens ride in a header on every request and headers get logged by proxies.
         // A name or email claim would quietly undo the log hygiene work; the name
         // comes from the customer service instead.
         String claims = decoded.getClaims().toString();
         assertThat(claims).doesNotContain("Ada Lovelace");
-        assertThat(claims).doesNotContain("ada@example.test");
+        assertThat(claims).doesNotContain(DemoIdentities.ADA.email());
     }
 
     @Test
     @DisplayName("a wrong password and an unknown email fail identically")
     void badCredentialsAreIndistinguishable() throws Exception {
-        MvcResult wrongPassword = attempt("ada@example.test", "wrong");
+        MvcResult wrongPassword = attempt(DemoIdentities.ADA.email(), "wrong");
         MvcResult unknownEmail = attempt("nobody@example.test", "demo-password");
 
         // Distinguishable answers turn a login endpoint into a way of finding out who

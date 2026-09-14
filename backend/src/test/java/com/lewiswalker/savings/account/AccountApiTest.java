@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.lewiswalker.savings.TestcontainersConfiguration;
+import com.lewiswalker.savings.platform.security.DemoIdentities;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,10 +32,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @Import(TestcontainersConfiguration.class)
 class AccountApiTest {
 
-    private static final String ADA = "ada@example.test";
-    private static final String GRACE = "grace@example.test";
+    private static final String ADA = DemoIdentities.ADA.email();
+    private static final String GRACE = DemoIdentities.GRACE.email();
     /** Due diligence deliberately left pending in the demo directory. */
-    private static final String ALAN = "alan@example.test";
+    private static final String ALAN = DemoIdentities.ALAN.email();
 
     @Autowired
     private MockMvc mockMvc;

@@ -33,8 +33,8 @@ public class AccountWriter {
     public Account attemptOpen(UUID customerId, String customerName, String nickname, int cap) {
         short sequenceNo = repository.nextSequenceNo(customerId);
 
-        // A clean answer for the common case, not the enforcement: the unique index
-        // resolves the race, the CHECK bounds the series.
+        // A quick answer for the common case, The unique index prevents race conditions.
+        // This prevents the expensive call to the external accountNumbers.allocate().
         if (sequenceNo > cap) {
             throw new AccountCapReachedException(customerId, cap);
         }

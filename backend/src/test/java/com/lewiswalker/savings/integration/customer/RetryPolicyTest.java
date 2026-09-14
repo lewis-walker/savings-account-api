@@ -26,7 +26,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 class RetryPolicyTest {
 
     @Autowired
-    private CustomerDirectory directory;
+    private CustomerService directory;
 
     @BeforeEach
     void reset() {
@@ -101,7 +101,7 @@ class RetryPolicyTest {
     }
 
     /** Fails on demand, counting how many times it was actually called. */
-    static class Flaky implements CustomerDirectory {
+    static class Flaky implements CustomerService {
 
         static final AtomicInteger attempts = new AtomicInteger();
         static volatile int failuresBeforeSuccess = 0;

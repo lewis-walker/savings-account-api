@@ -53,7 +53,7 @@ public class AccountController {
             @RequestHeader(value = IDEMPOTENCY_HEADER, required = false)
             @IdempotencyKey String idempotencyKey,
             @Valid @RequestBody OpenAccountRequest request) {
-        UUID customerId = customerId(caller);
+        UUID customerId = customerIdFrom(caller);
         return created(idempotency.performOnce(customerId, idempotencyKey,
                 RequestFingerprint.of(customerId.toString(), request.nickname()),
                 () -> accounts.open(customerId, request.nickname()).id(),
@@ -89,21 +89,24 @@ public class AccountController {
     @GetMapping("/{id}")
     public AccountResponse get(@AuthenticationPrincipal Jwt caller, @PathVariable UUID id) {
         return accounts.findById(id)
-                .filter(account -> account.customerId().equals(customerId(caller)))
+                .filter(account -> account.customerId().equals(customerIdFrom(caller)))
                 .map(AccountResponse::of)
                 .orElseThrow(() -> new AccountNotFoundException(id));
     }
 
-    /** Beyond the brief's two operations; scoped by the token, so nothing to enumerate. */
+    /**
+     * Takes no identifier: the customer comes from the token, so a caller has no input
+     * to vary and cannot reach an account that is not theirs.
+     */
     @GetMapping
     public List<AccountResponse> list(@AuthenticationPrincipal Jwt caller) {
-        return accounts.findForCustomer(customerId(caller)).stream()
+        return accounts.findForCustomer(customerIdFrom(caller)).stream()
                 .map(AccountResponse::of)
                 .toList();
     }
 
     /** The only place customer identity comes from. */
-    private static UUID customerId(Jwt caller) {
+    private static UUID customerIdFrom(Jwt caller) {
         return UUID.fromString(Objects.requireNonNull(caller.getSubject()));
     }
 }

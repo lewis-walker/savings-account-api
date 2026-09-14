@@ -1,9 +1,8 @@
 package com.lewiswalker.savings.account.api;
 
 /**
- * The body of a request to open an account: a nickname and nothing else. The customer's
- * name and id come from the verified record and the token; see DECISIONS.md. Unknown
- * properties are rejected, so a client sending {@code customerName} is told so.
+ * The body of a request to open an account: a nickname and nothing else.
+ * Unknown properties are rejected.
  */
 public record OpenAccountRequest(
 

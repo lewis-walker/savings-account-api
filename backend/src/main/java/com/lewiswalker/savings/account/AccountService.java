@@ -3,7 +3,7 @@ package com.lewiswalker.savings.account;
 import com.lewiswalker.savings.platform.audit.AuditLog;
 import com.lewiswalker.savings.platform.cache.CacheConfig;
 import com.lewiswalker.savings.integration.customer.Customer;
-import com.lewiswalker.savings.integration.customer.CustomerDirectory;
+import com.lewiswalker.savings.integration.customer.CustomerService;
 import com.lewiswalker.savings.integration.customer.CustomerNotVerifiedException;
 import com.lewiswalker.savings.integration.customer.UnknownCustomerException;
 import com.lewiswalker.savings.integration.nickname.OffensiveNicknameChecker;
@@ -36,7 +36,7 @@ public class AccountService {
     private final AccountWriter writer;
     private final AccountRepository repository;
     private final OffensiveNicknameChecker nicknameChecker;
-    private final CustomerDirectory customers;
+    private final CustomerService customers;
     private final AuditLog auditLog;
     private final AccountCacheWarmer cacheWarmer;
 
@@ -45,7 +45,7 @@ public class AccountService {
 
     public AccountService(AccountWriter writer, AccountRepository repository,
                           OffensiveNicknameChecker nicknameChecker,
-                          CustomerDirectory customers, AuditLog auditLog,
+                          CustomerService customers, AuditLog auditLog,
                           AccountCacheWarmer cacheWarmer,
                           PlatformTransactionManager transactionManager) {
         this.writer = writer;

@@ -32,7 +32,7 @@ import org.springframework.context.annotation.Import;
 class CacheKillSwitchTest {
 
     private static final UUID ADA =
-            DemoIdentities.byEmail("ada@example.test").orElseThrow().customerId();
+            DemoIdentities.ADA.customerId();
 
     @Autowired private AccountService accounts;
     @Autowired private AccountRepository repository;

@@ -20,13 +20,20 @@ public final class DemoIdentities {
 
     public record Identity(UUID customerId, String email, String fullName) {}
 
-    private static final List<Identity> ALL = List.of(
-            new Identity(UUID.fromString("11111111-1111-4111-8111-111111111111"),
-                    "ada@example.test", "Ada Lovelace"),
-            new Identity(UUID.fromString("22222222-2222-4222-8222-222222222222"),
-                    "grace@example.test", "Grace Hopper"),
-            new Identity(UUID.fromString("33333333-3333-4333-8333-333333333333"),
-                    "alan@example.test", "Alan Turing"));
+    public static final Identity ADA = new Identity(
+            UUID.fromString("11111111-1111-4111-8111-111111111111"),
+            "ada@example.test", "Ada Lovelace");
+
+    public static final Identity GRACE = new Identity(
+            UUID.fromString("22222222-2222-4222-8222-222222222222"),
+            "grace@example.test", "Grace Hopper");
+
+    /** Due diligence is incomplete for this one; the customer service reads that from here. */
+    public static final Identity ALAN = new Identity(
+            UUID.fromString("33333333-3333-4333-8333-333333333333"),
+            "alan@example.test", "Alan Turing");
+
+    private static final List<Identity> ALL = List.of(ADA, GRACE, ALAN);
 
     private DemoIdentities() {}
 

@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Import;
 class CacheBehaviourTest {
 
     /** A real demo customer, so the real cached adapter is the one being exercised. */
-    private static final UUID ADA = DemoIdentities.byEmail("ada@example.test").orElseThrow().customerId();
+    private static final UUID ADA = DemoIdentities.ADA.customerId();
 
     @Autowired private AccountService accounts;
     @Autowired private AccountRepository repository;
