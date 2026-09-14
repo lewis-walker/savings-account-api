@@ -100,7 +100,20 @@ A real flag service evaluates per user, so a flag can be on for some people and 
 
 Each flag records its purpose and expected lifetime. Temporary flags should be removed when no longer needed; operational kill switches remain.
 
+**An unnamed account is named, but the nickname stays empty.** The brief makes the nickname optional and says nothing about what to show when it is absent, so the response carries a `displayName` alongside it: the nickname where there is one, otherwise `Savings account <n>` from the customer's own account sequence. That sequence is already unique per customer — the unique index guarantees it — so their five accounts are distinguishable rather than five rows reading the same thing.
+
+Derived on the way out, never stored. `nickname` remains the customer's word and `displayName` remains ours, so a support screen or a statement run can still tell which is which. Computed on the server so every client names an account the same way, rather than each one inventing a rule.
+
 ## Front end
+
+**Appearance follows the operating system, until someone says otherwise.** `useAppearance` reads `prefers-color-scheme` and keeps listening, because a desktop can switch it on a schedule while the page is open. An explicit choice overrides it and is kept per device. Every call to `matchMedia` is guarded: jsdom does not implement it, so a component that assumes it is there fails in tests rather than in a browser.
+
+**A row is a union, not a bag of optional fields.** `AccountRow` is `PendingAccountRow | OpenedAccountRow`: a row this client invented, which has a nickname and nothing else, or one the server confirmed, which has every field the API returns. The earlier `Partial<Account>` said all of them might be missing at any time, which was never true and left the component guarding against cases that cannot happen. Narrowing on `pending` now gives the compiler the same knowledge a reader has.
+
+**The form is hidden at the limit rather than disabled.** The badge beside the heading already reads "5 of 5 allowed" in red; a form that cannot be submitted is furniture. The server still refuses a sixth account regardless of what the screen shows - `AccountCapConcurrencyTest` is the proof - so nothing here is an enforcement.
+
+**Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. The application ships no CSS of its own at all. The account list stays a real `<ul>`, so a screen reader announces it as a list with a count rather than as unrelated boxes, and Radix's own `Reset` takes the bullets and padding off it. Components are grouped by feature - `accounts`, `auth`, `ui` for the two pieces both use - so the folder says what the application does rather than what its files are.
+
 
 **Access tokens are stored in memory.** This avoids persistent storage in `localStorage`, where injected scripts could retrieve them. The trade-off is that refreshing the page signs the user out. A production implementation would use a refresh token in an `httpOnly` cookie.
 

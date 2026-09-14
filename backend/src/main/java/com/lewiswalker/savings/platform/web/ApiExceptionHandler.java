@@ -15,6 +15,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -132,8 +134,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /**
      * A constraint fired that validation should have prevented.
      *
-     * <p>The exception is never logged: a Postgres constraint violation carries
-     * {@code Detail: Failing row contains (...)}, every column included.
+     * <p>The exception is never logged: a Postgres constraint violation
+     * would carry PII
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail constraintViolated(DataIntegrityViolationException e) {
@@ -148,16 +150,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler({DataAccessException.class, TransactionException.class})
     ProblemDetail databaseUnavailable(RuntimeException e) {
         // TransactionException, not just DataAccessException: failing to get a connection
-        // arrives as CannotCreateTransactionException, which is a sibling rather than a
-        // subclass. The message is not passed through - it can carry SQL and row values.
+        // arrives as CannotCreateTransactionException.
+        // The message is not passed through - it can carry SQL and PII.
         log.error("database access failed", e);
         return temporarilyUnavailable();
     }
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException e, HttpHeaders headers,
-            HttpStatusCode status, WebRequest request) {
+            MethodArgumentNotValidException e, @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status, @NonNull WebRequest request) {
         return validationFailed(e.getBindingResult().getFieldErrors().stream()
                 .map(FieldFailure::of)
                 .toList());
@@ -165,16 +167,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * The same document for a rejected header as for a rejected body field.
-     *
-     * <p>One constraint anywhere on a handler method routes that method's whole
-     * validation through this exception rather than {@link MethodArgumentNotValidException},
-     * so annotating the header brought {@code @Valid @RequestBody} here too. Both are
-     * handled: a constrained parameter names itself, a body names its fields.
      */
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
-            HandlerMethodValidationException e, HttpHeaders headers,
-            HttpStatusCode status, WebRequest request) {
+            HandlerMethodValidationException e, @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status, @NonNull WebRequest request) {
         return validationFailed(e.getParameterValidationResults().stream()
                 .flatMap(ApiExceptionHandler::fieldFailures)
                 .toList());
@@ -211,8 +208,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(
-            Exception exception, Object body, HttpHeaders headers,
-            HttpStatusCode statusCode, WebRequest request) {
+            @NonNull Exception exception, Object body, @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode statusCode, @NonNull WebRequest request) {
 
         ResponseEntity<Object> response =
                 super.handleExceptionInternal(exception, body, headers, statusCode, request);

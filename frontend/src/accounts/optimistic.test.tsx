@@ -2,10 +2,11 @@ import { configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { Theme } from '@radix-ui/themes';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/api';
 import authReducer, { signedIn } from '../auth/authSlice';
-import Accounts from '../components/Accounts';
+import Accounts from './Accounts';
 
 /**
  * The optimistic upsert, which is the only genuinely tricky logic in this app.
@@ -91,7 +92,7 @@ describe('opening an account', () => {
     const { fetchMock, releaseCreate } = controllableFetch();
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<Provider store={store}><Accounts /></Provider>);
+    render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
     await screen.findByText(/no accounts yet/i);
 
     await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
@@ -101,9 +102,7 @@ describe('opening an account', () => {
     //    so there is no account number to show and the row says so.
     const pendingRow = await screen.findByText('Holiday fund');
     const row = pendingRow.closest('li')!;
-    expect(row).toHaveClass('pending');
-    // Scoped to the row: the submit button also reads "Opening…" while the request is
-    // in flight, and an unscoped query matches both.
+    // Scoped to the row, so this cannot accidentally match a badge elsewhere.
     expect(within(row).getByText('Opening…')).toBeInTheDocument();
     // No account number yet. The API allocates it, so until the server answers there
     // is nothing honest to put here.
@@ -117,6 +116,7 @@ describe('opening an account', () => {
         accountNumber: '99-0001-0000123-030',
         customerName: 'Ada Lovelace',
         nickname: 'Holiday fund',
+        displayName: 'Holiday fund',
         openedAt: '2026-09-14T10:00:00Z',
       },
     });
@@ -129,7 +129,6 @@ describe('opening an account', () => {
     //    the row were keyed by the account id, React would have unmounted this node and
     //    mounted a new one when the id arrived.
     expect(screen.getByText('Holiday fund').closest('li')).toBe(row);
-    expect(row).not.toHaveClass('pending');
     expect(within(row).queryByText('Opening…')).not.toBeInTheDocument();
   });
 
@@ -137,7 +136,7 @@ describe('opening an account', () => {
     const { fetchMock, releaseCreate } = controllableFetch();
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<Provider store={store}><Accounts /></Provider>);
+    render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
     await screen.findByText(/no accounts yet/i);
 
     await userEvent.type(screen.getByRole('textbox'), 'my badword account');
@@ -168,7 +167,7 @@ describe('opening an account', () => {
       const { fetchMock, releaseCreate } = controllableFetch();
       vi.stubGlobal('fetch', fetchMock);
 
-      render(<Provider store={store}><Accounts /></Provider>);
+      render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
       await screen.findByText(/no accounts yet/i);
 
       await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
@@ -188,6 +187,7 @@ describe('opening an account', () => {
           accountNumber: '99-0001-0000321-030',
           customerName: 'Ada Lovelace',
           nickname: 'Holiday fund',
+          displayName: 'Holiday fund',
           openedAt: '2026-09-14T10:00:00Z',
         },
       });
@@ -202,7 +202,7 @@ describe('opening an account', () => {
     const { fetchMock, releaseCreate } = controllableFetch();
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<Provider store={store}><Accounts /></Provider>);
+    render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
     await screen.findByText(/no accounts yet/i);
 
     await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
@@ -215,8 +215,8 @@ describe('opening an account', () => {
       draft.length = 0;
       draft.push({
         clientRef: 'server-1', id: 'server-1', accountNumber: '99-0001-0000111-030',
-        customerName: 'Ada Lovelace', nickname: 'House deposit',
-        openedAt: '2026-09-14T09:00:00Z',
+        customerName: 'Ada Lovelace', nickname: 'House deposit', displayName: 'House deposit',
+        openedAt: '2026-09-14T09:00:00Z', pending: false,
       });
     }));
 
@@ -237,7 +237,7 @@ describe('opening an account', () => {
       const { fetchMock, releaseCreate } = controllableFetch();
       vi.stubGlobal('fetch', fetchMock);
 
-      render(<Provider store={store}><Accounts /></Provider>);
+      render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
       await screen.findByText(/no accounts yet/i);
 
       await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');

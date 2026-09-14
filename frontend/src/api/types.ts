@@ -1,34 +1,46 @@
 /** What the API returns for an account. Mirrors AccountResponse on the server. */
-export interface Account {
+export type Account = {
   id: string;
   accountNumber: string;
   customerName: string;
+  /** What the customer called it, or null if they did not name it. */
   nickname: string | null;
+  /** What to show. The nickname, or one the server built from their account sequence. */
+  displayName: string;
   openedAt: string;
 }
 
 /**
- * An account as the UI holds it.
+ * An account as the UI holds it: either a row this client invented, or one the server
+ * has confirmed. The union says which fields exist in each case, rather than making all
+ * of them optional and leaving every reader to guess.
  *
- * <p>`clientRef` is the React key, and it is deliberately not the account id. An
- * optimistic row exists before the server has given it an id — the API generates
- * account ids, which the brief requires — so keying on `id` would mean the key changing
- * from undefined to a real value the moment the response lands, and React would unmount
- * and remount the row. The ref is minted when the row is created and never changes for
- * as long as that row exists.
+ * <p>`clientRef` is the React key on both arms, and deliberately not the account id. A
+ * pending row exists before the server has minted an id - the API generates them, which
+ * the brief requires - so keying on the id would change the key the moment the response
+ * landed, and React would unmount and remount the row. The ref is minted once and never
+ * changes for as long as the row exists.
  *
- * The key is a rendering concern. The id is a domain concern. Conflating them is what
+ * <p>The key is a rendering concern. The id is a domain concern. Conflating them is what
  * makes optimistic lists flicker.
  */
-export interface AccountRow extends Partial<Account> {
+export type AccountRow = PendingAccountRow | OpenedAccountRow;
+
+/** On screen, not yet anywhere else. It has no id, number or opening date to show. */
+export type PendingAccountRow = {
   clientRef: string;
   nickname: string | null;
-  /** True while the server has not yet confirmed this account exists. */
-  pending?: boolean;
-}
+  pending: true;
+};
+
+/** Committed, so every field the API returns is present. */
+export type OpenedAccountRow = Account & {
+  clientRef: string;
+  pending: false;
+};
 
 /** RFC 7807. One shape for every error the API returns. */
-export interface Problem {
+export type Problem = {
   type?: string;
   title?: string;
   status?: number;
