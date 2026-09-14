@@ -44,8 +44,4 @@ public final class DemoIdentities {
     public static Optional<Identity> byEmail(String email) {
         return ALL.stream().filter(i -> i.email().equalsIgnoreCase(email)).findFirst();
     }
-
-    public static Optional<Identity> byCustomerId(UUID customerId) {
-        return ALL.stream().filter(i -> i.customerId().equals(customerId)).findFirst();
-    }
 }

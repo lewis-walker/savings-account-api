@@ -29,11 +29,6 @@ public class FeatureFlagsEndpoint {
         return Map.of("flags", List.of(state()));
     }
 
-    @ReadOperation
-    public FlagState flag(@Selector String key) {
-        return state(key);
-    }
-
     @WriteOperation
     public FlagState set(@Selector String key, boolean enabled) {
         state(key);
