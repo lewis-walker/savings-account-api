@@ -23,7 +23,7 @@ export function useOpenAccount() {
   const [nickname, setNickname] = useState('');
   const [failure, setFailure] = useState<{ attempt: Attempt; error: unknown } | null>(null);
 
-  async function attempt(next: Attempt) {
+  async function attemptOpenAccount(next: Attempt) {
     setFailure(null);
     try {
       await openAccount(next).unwrap();
@@ -37,7 +37,7 @@ export function useOpenAccount() {
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = nickname.trim();
-    void attempt({
+    void attemptOpenAccount({
       nickname: trimmed === '' ? null : trimmed,
       clientRef: nanoid(),
       idempotencyKey: nanoid(),
@@ -48,7 +48,7 @@ export function useOpenAccount() {
     if (!failure) return;
     // A new row on screen, so a new render key - but the same idempotency key, so the
     // server treats it as the request it has already seen.
-    void attempt({ ...failure.attempt, clientRef: nanoid() });
+    void attemptOpenAccount({ ...failure.attempt, clientRef: nanoid() });
   }
 
   return { nickname, setNickname, submit, retry, failure, opening };
