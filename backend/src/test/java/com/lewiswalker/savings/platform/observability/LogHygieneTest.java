@@ -7,7 +7,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.lewiswalker.savings.TestcontainersConfiguration;
-import com.lewiswalker.savings.support.StubCustomerDirectory;
+import com.lewiswalker.savings.support.StubCustomerService;
 import com.lewiswalker.savings.account.AccountView;
 import com.lewiswalker.savings.account.AccountCapReachedException;
 import com.lewiswalker.savings.account.AccountService;
@@ -34,7 +34,7 @@ import org.springframework.context.annotation.Import;
  * sits, since Hibernate will happily print bind parameters if configured to.
  */
 @SpringBootTest
-@Import({TestcontainersConfiguration.class, StubCustomerDirectory.class})
+@Import({TestcontainersConfiguration.class, StubCustomerService.class})
 class LogHygieneTest {
 
     /**
@@ -42,7 +42,7 @@ class LogHygieneTest {
      * is taken from the stub that supplies it — asserting on a hard-coded copy would
      * silently stop testing anything the moment the stub changed.
      */
-    private static final String CUSTOMER_NAME = StubCustomerDirectory.ANY_CUSTOMER_NAME;
+    private static final String CUSTOMER_NAME = StubCustomerService.ANY_CUSTOMER_NAME;
     private static final String NICKNAME = "Sapphire holiday fund";
 
     @Autowired
