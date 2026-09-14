@@ -6,18 +6,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * The cache kill switch: one flag, flippable while the service runs.
- *
- * <p>A flag rather than a configuration property because the point is to take a
- * misbehaving cache out of the path without a deployment, and a property needs a
- * restart - which is the last thing anyone wants mid-incident.
- *
- * <p>Read on every call and never held in a field by a caller, or it becomes the
- * property it exists not to be. Defaults to the current behaviour, so a flag service
- * that cannot be reached does not turn something on that nobody decided to turn on.
- *
- * <p>A real deployment uses a flag service - LaunchDarkly and the like - which streams
- * changes to every instance rather than one at a time. See DECISIONS.md; the shape of
- * that is not modelled here.
  */
 @Component("featureFlags")
 public class FeatureFlags {

@@ -10,14 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Reads and flips the flag, on the management port.
- *
- * <p>An actuator endpoint rather than a controller, so it is not served on the port
- * customers reach: a switch that changes how the service behaves has no business sharing
- * a port, a certificate or an ingress rule with the account API.
- *
- * <p>TODO: authentication. Open so the demo runs with one command, and the first thing
- * that would change - an endpoint that can turn off a dependency is an endpoint that can
- * cause an incident, so it wants SSO and an audit trail of who changed what.
+ * Purely throw-away. No authentication, no audit trail, no nothing.
  */
 @Component
 @Endpoint(id = "featureflags")
