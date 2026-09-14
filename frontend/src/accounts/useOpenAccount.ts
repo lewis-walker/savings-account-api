@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import { useOpenAccountMutation } from '../api/api';
 
 /** One in-flight or failed attempt to open an account. */
-export interface Attempt {
+export type Attempt = {
   nickname: string | null;
   clientRef: string;
   /**

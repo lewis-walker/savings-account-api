@@ -104,6 +104,8 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 **Appearance follows the operating system, until someone says otherwise.** `useAppearance` reads `prefers-color-scheme` and keeps listening, because a desktop can switch it on a schedule while the page is open. An explicit choice overrides it and is kept per device. Every call to `matchMedia` is guarded: jsdom does not implement it, so a component that assumes it is there fails in tests rather than in a browser.
 
+**A row is a union, not a bag of optional fields.** `AccountRow` is `PendingAccountRow | OpenedAccountRow`: a row this client invented, which has a nickname and nothing else, or one the server confirmed, which has every field the API returns. The earlier `Partial<Account>` said all of them might be missing at any time, which was never true and left the component guarding against cases that cannot happen. Narrowing on `pending` now gives the compiler the same knowledge a reader has.
+
 **Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. The application ships no CSS of its own at all. The account list stays a real `<ul>`, so a screen reader announces it as a list with a count rather than as unrelated boxes, and Radix's own `Reset` takes the bullets and padding off it. Components are grouped by feature - `accounts`, `auth`, `ui` for the two pieces both use - so the folder says what the application does rather than what its files are.
 
 

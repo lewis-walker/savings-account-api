@@ -214,7 +214,7 @@ describe('opening an account', () => {
       draft.push({
         clientRef: 'server-1', id: 'server-1', accountNumber: '99-0001-0000111-030',
         customerName: 'Ada Lovelace', nickname: 'House deposit',
-        openedAt: '2026-09-14T09:00:00Z',
+        openedAt: '2026-09-14T09:00:00Z', pending: false,
       });
     }));
 

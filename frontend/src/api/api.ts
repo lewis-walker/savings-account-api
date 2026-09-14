@@ -45,8 +45,7 @@ export const api = createApi({
 
   refetchOnReconnect: true,
 
-  // Not on focus: a list of money that rebuilds itself whenever you glance away reads
-  // as instability rather than freshness.
+  // Not on focus: we make refresh a deliberate decision.
   refetchOnFocus: false,
   endpoints: (builder) => ({
     signIn: builder.mutation<{ access_token: string; expires_in: number }, {
@@ -61,7 +60,7 @@ export const api = createApi({
       // Every row carries a clientRef: an optimistic one has no id to be keyed by, and
       // the key must survive the id arriving.
       transformResponse: (accounts: Account[]): AccountRow[] =>
-        accounts.map((account) => ({ ...account, clientRef: account.id })),
+        accounts.map((account) => ({ ...account, clientRef: account.id, pending: false })),
       providesTags: ['Account'],
     }),
 
@@ -94,12 +93,16 @@ export const api = createApi({
           // no-op here is a committed account that never appears.
           dispatch(
             api.util.updateQueryData('listAccounts', undefined, (draft) => {
-              const row = draft.find(
-                (candidate) => candidate.clientRef === clientRef || candidate.id === data.id,
+              const at = draft.findIndex(
+                (candidate) =>
+                  candidate.clientRef === clientRef ||
+                  (!candidate.pending && candidate.id === data.id),
               );
-              if (row) {
-                // Its own ref, not the one passed in: re-keying remounts the row.
-                Object.assign(row, data, { clientRef: row.clientRef, pending: false });
+              // Replaced, not merged: this is a pending row becoming an opened one, which
+              // is a different member of the union rather than the same one with more
+              // fields. The ref carried over is the row's own - re-keying remounts it.
+              if (at >= 0) {
+                draft[at] = { ...data, clientRef: draft[at].clientRef, pending: false };
               } else {
                 draft.push({ ...data, clientRef, pending: false });
               }
