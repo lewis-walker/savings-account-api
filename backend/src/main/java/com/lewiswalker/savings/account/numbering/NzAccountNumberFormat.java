@@ -1,4 +1,4 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.numbering;
 
 import java.util.Optional;
 import org.springframework.stereotype.Component;

@@ -2,7 +2,7 @@ package com.lewiswalker.savings.web;
 
 import com.lewiswalker.savings.account.AccountCapReachedException;
 import com.lewiswalker.savings.account.AccountNotFoundException;
-import com.lewiswalker.savings.account.AccountNumberAllocationException;
+import com.lewiswalker.savings.account.numbering.AccountNumberAllocationException;
 import com.lewiswalker.savings.account.ConstraintNames;
 import com.lewiswalker.savings.customer.CustomerDirectoryUnavailableException;
 import com.lewiswalker.savings.customer.CustomerNotVerifiedException;

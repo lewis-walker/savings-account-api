@@ -1,4 +1,4 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.numbering;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

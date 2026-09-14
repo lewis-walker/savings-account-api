@@ -45,9 +45,9 @@ public class DemoCustomerDirectory implements CustomerDirectory {
      * <p>The policy is here rather than on the port because how hard to try is a
      * property of the transport, not of the question being asked.
      *
-     * <p>It cannot fire against this adapter — an in-process map does not fail
-     * transiently — and it is annotated anyway, because this is the seam the real
-     * adapter drops into and the policy is part of what that seam is for. What it
+     * <p>It cannot fire against this adapter, because an in-process map does not fail
+     * transiently. It is annotated anyway: the real adapter goes here, and the policy is
+     * part of what this interface is for. What it
      * retries is the point: only unavailability. An unknown customer is a final answer
      * and retrying it would delay a definite no.
      */

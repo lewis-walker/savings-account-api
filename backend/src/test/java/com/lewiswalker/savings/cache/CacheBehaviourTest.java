@@ -130,7 +130,7 @@ class CacheBehaviourTest {
     }
 
     @Test
-    @DisplayName("the customer lookup is cached - the one that earns its keep")
+    @DisplayName("the customer lookup is cached")
     void customerLookupIsCached() {
         accounts.open(ADA, null);
 

@@ -1,5 +1,6 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.api;
 
+import com.lewiswalker.savings.account.AccountView;
 import java.time.Instant;
 import java.util.UUID;
 

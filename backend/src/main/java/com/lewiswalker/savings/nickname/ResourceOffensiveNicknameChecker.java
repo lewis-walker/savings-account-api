@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
  * <p>TODO: in a real system this list is not a file baked into the artifact. It belongs
  * behind an interface like this one, sourced from a moderation service or a table an
  * operations team can edit without a deployment, and the outcome wants recording for
- * review. The interface is the seam; the file is a stand-in.
+ * review. The file is a stand-in for that.
  */
 @Component
 public class ResourceOffensiveNicknameChecker implements OffensiveNicknameChecker {

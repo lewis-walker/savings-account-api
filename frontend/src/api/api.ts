@@ -51,7 +51,7 @@ const baseQuery = fetchBaseQuery({
  * request replayed — safe to replay precisely because a create carries an
  * `Idempotency-Key`, so a replayed POST returns the original account rather than opening
  * a second one. Refresh is deliberately not built (see DECISIONS.md); what is built is
- * the part that makes it safe, and the seam it would slot into.
+ * the part that makes it safe, and the place it would attach.
  */
 const baseQueryWithAuthHandling: BaseQueryFn<
   string | FetchArgs,

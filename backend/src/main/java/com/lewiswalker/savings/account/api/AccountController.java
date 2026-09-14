@@ -1,5 +1,8 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.api;
 
+import com.lewiswalker.savings.account.AccountView;
+import com.lewiswalker.savings.account.AccountService;
+import com.lewiswalker.savings.account.AccountNotFoundException;
 import com.lewiswalker.savings.idempotency.IdempotencyExceptions;
 import com.lewiswalker.savings.idempotency.IdempotencyRecord;
 import com.lewiswalker.savings.idempotency.IdempotencyStore;

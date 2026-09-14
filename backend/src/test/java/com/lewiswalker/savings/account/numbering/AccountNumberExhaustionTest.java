@@ -1,10 +1,11 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.numbering;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.lewiswalker.savings.account.AccountRepository;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

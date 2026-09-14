@@ -1,4 +1,4 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.api;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintValidator;

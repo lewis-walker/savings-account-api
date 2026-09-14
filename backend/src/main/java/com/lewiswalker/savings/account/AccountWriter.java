@@ -1,5 +1,6 @@
 package com.lewiswalker.savings.account;
 
+import com.lewiswalker.savings.account.numbering.AccountNumberAllocator;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;

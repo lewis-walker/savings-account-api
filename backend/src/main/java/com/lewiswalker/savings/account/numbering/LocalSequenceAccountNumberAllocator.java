@@ -1,5 +1,6 @@
-package com.lewiswalker.savings.account;
+package com.lewiswalker.savings.account.numbering;
 
+import com.lewiswalker.savings.account.AccountRepository;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -51,8 +52,8 @@ public class LocalSequenceAccountNumberAllocator implements AccountNumberAllocat
      * the port because the core adapter cannot do without it.
      */
     /*
-     * Cannot fire against this adapter, and is annotated anyway because this is the seam
-     * the real one drops into - the same reasoning as DemoCustomerDirectory. Exhausting
+     * Cannot fire against this adapter, and is annotated anyway because the real one goes
+     * here - the same reasoning as DemoCustomerDirectory. Exhausting
      * MAX_DRAWS locally is not merely improbable but impossible: the check digit's
      * position carries weight 1, so consecutive sequence values step the residue by a
      * fixed amount and cannot produce 10 thirty-two times running.
