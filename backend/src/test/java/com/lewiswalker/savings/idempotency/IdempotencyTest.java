@@ -57,6 +57,7 @@ class IdempotencyTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private AccountRepository repository;
     @Autowired private IdempotencyStore store;
+    @Autowired private org.springframework.data.redis.core.StringRedisTemplate redis;
 
     private final ObjectMapper json = new ObjectMapper();
 
@@ -179,6 +180,25 @@ class IdempotencyTest {
         } finally {
             auditLogger.detachAppender(captured);
         }
+    }
+
+    @Test
+    @DisplayName("an entry that names no result is refused as a problem document, not a raw 500")
+    void corruptRecordIsRefusedInTheApiContract() throws Exception {
+        // Written raw, because nothing in the store can produce this: complete() only
+        // takes a real id. A partial write, a tampered entry or an older shape can.
+        String key = freshKey();
+        redis.opsForValue().set("idempotency:" + ADA_ID + ":" + key,
+                "{\"state\":\"COMPLETED\",\"fingerprint\":\""
+                        + RequestFingerprint.of(ADA_ID.toString(), "Holiday fund") + "\"}");
+
+        mockMvc.perform(open(key, "{\"nickname\":\"Holiday fund\"}"))
+                .andExpect(status().isInternalServerError())
+                // The point of the test: inside the API's own contract, with something to
+                // quote at support. A null reaching the cache leaves neither.
+                .andExpect(jsonPath("$.type").value(containsString("request-failed")))
+                .andExpect(jsonPath("$.correlationId").isNotEmpty());
+        assertThat(repository.count()).isZero();
     }
 
     @Test

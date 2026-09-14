@@ -89,6 +89,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "Request failed", "Something went wrong. Please try again later.");
     }
 
+    @ExceptionHandler(IdempotencyExceptions.CorruptRecord.class)
+    ProblemDetail corruptIdempotencyRecord(IdempotencyExceptions.CorruptRecord e) {
+        // Not retryable, so not the 503 the unreachable store gets: the same entry
+        // answers the same way until it expires.
+        log.error("idempotency entry unusable", e);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "request-failed",
+                "Request failed", "Something went wrong. Please try again later.");
+    }
+
     @ExceptionHandler(IdempotencyExceptions.KeyReused.class)
     ProblemDetail idempotencyKeyReused(IdempotencyExceptions.KeyReused e) {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, "idempotency-key-reused",

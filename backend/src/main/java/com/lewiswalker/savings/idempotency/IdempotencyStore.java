@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.regex.Pattern;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -15,7 +17,8 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>{@link #once} is the whole public surface. The primitives underneath have to be
  * called in one order - claim, then perform, then complete or release - and a caller
- * that gets it wrong opens a second account, which is the failure this exists to stop.
+ * that gets it wrong performs the operation twice, which is the failure this exists to
+ * stop - here, a second account against a cap of five.
  * They are package-private so the order cannot be reassembled elsewhere, and so the
  * record it keeps stays an implementation detail.
  *
@@ -28,6 +31,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 public class IdempotencyStore {
+
+    private static final Logger log = LoggerFactory.getLogger(IdempotencyStore.class);
 
     /** Client-supplied, and it becomes part of a Redis key: a UUID, a ULID, or nothing. */
     private static final Pattern ACCEPTABLE = Pattern.compile("[A-Za-z0-9_-]{8,128}");
@@ -65,7 +70,7 @@ public class IdempotencyStore {
 
         Optional<IdempotencyRecord> existing = claim(customerId, key, fingerprint);
         if (existing.isPresent()) {
-            return recall.apply(replayable(existing.get(), key, fingerprint));
+            return recall.apply(replayable(customerId, existing.get(), fingerprint, key));
         }
 
         UUID id;
@@ -81,14 +86,26 @@ public class IdempotencyStore {
     }
 
     /** The id an earlier request created, once this one is established as the same request. */
-    private static UUID replayable(IdempotencyRecord record, String key, String fingerprint) {
+    private static UUID replayable(UUID customerId, IdempotencyRecord record,
+                                   String fingerprint, String key) {
         if (!record.matches(fingerprint)) {
             throw new IdempotencyExceptions.KeyReused(key);
         }
         if (record.state() == IdempotencyRecord.State.IN_PROGRESS) {
             throw new IdempotencyExceptions.InProgress(key);
         }
-        return UUID.fromString(record.accountId());
+        if (record.resultId() == null) {
+            // A completed entry names what it created. One that does not cannot be
+            // replayed, and a null here reaches the cache as a null key, which fails
+            // somewhere that has no idea what it is talking about.
+            //
+            // The customer, not the key: the key is client-supplied, and this is the one
+            // path that reaches here without the constraint having run.
+            log.error("idempotency entry for customer {} is complete but names no result", customerId);
+            throw new IdempotencyExceptions.CorruptRecord(
+                    "a completed idempotency entry names no result");
+        }
+        return record.resultId();
     }
 
     /**
@@ -108,7 +125,7 @@ public class IdempotencyStore {
             String existing = redis.opsForValue().get(redisKey);
             if (existing == null) {
                 // Expired between the failed claim and this read. "In progress" is the
-                // safe reading; the alternative opens a second account.
+                // safe reading; the alternative performs the operation twice.
                 return Optional.of(IdempotencyRecord.inProgress(fingerprint));
             }
             return Optional.of(read(existing));
@@ -119,14 +136,14 @@ public class IdempotencyStore {
     }
 
     /** Records the outcome, so a later retry of the same request is answered rather than repeated. */
-    void complete(UUID customerId, String key, String fingerprint, UUID accountId) {
+    void complete(UUID customerId, String key, String fingerprint, UUID resultId) {
         try {
             redis.opsForValue().set(
                     keyFor(customerId, key),
-                    write(IdempotencyRecord.inProgress(fingerprint).completedWith(accountId.toString())),
+                    write(IdempotencyRecord.inProgress(fingerprint).completedWith(resultId)),
                     retention);
         } catch (RuntimeException e) {
-            // The account is committed. Failing now would tell the caller it did not
+            // The operation is committed. Failing now would tell the caller it did not
             // happen, which is worse than losing replay protection for one key.
             throw new IdempotencyExceptions.StoreUnavailable(
                     "could not record the outcome of an idempotent request", e);

@@ -26,6 +26,19 @@ public final class IdempotencyExceptions {
     }
 
     /**
+     * A stored entry cannot be read back as a request that completed.
+     *
+     * <p>Distinct from the store being unreachable, which resolves on its own: this one
+     * is the same entry every time, so the caller is told the request failed rather than
+     * invited to retry into it.
+     */
+    public static class CorruptRecord extends RuntimeException {
+        public CorruptRecord(String message) {
+            super(message);
+        }
+    }
+
+    /**
      * The store could not be reached, and the request fails. The same Redis backs the read
      * cache, where a failure is swallowed; this is a correctness control rather than a
      * latency optimisation, so it fails closed. See DECISIONS.md.
