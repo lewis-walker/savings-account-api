@@ -1,10 +1,9 @@
+import { Box, Button, Card, Code, Flex, Heading, Text, TextField } from '@radix-ui/themes';
 import { useState, type FormEvent } from 'react';
 import { useDispatch } from 'react-redux';
 import { api, asProblem, useSignInMutation } from '../api/api';
-import { signedIn } from './authSlice';
-import Card from '../ui/Card';
 import Problem from '../ui/Problem';
-import styles from './SignIn.module.css';
+import { signedIn } from './authSlice';
 
 export default function SignIn() {
   const [email, setEmail] = useState('ada@example.test');
@@ -19,8 +18,7 @@ export default function SignIn() {
       // Clear the cache before the identity changes. Without this, signing in as a
       // second customer serves the first customer's accounts from cache - the token is
       // new, but RTK Query has no reason to refetch a query whose arguments have not
-      // changed. Keyed on sign-in rather than sign-out because sign-out is not the only
-      // way an identity changes.
+      // changed. Keyed on sign-in because sign-out is not the only way an identity moves.
       dispatch(api.util.resetApiState());
       dispatch(signedIn({ accessToken: result.access_token, email }));
     } catch {
@@ -29,42 +27,44 @@ export default function SignIn() {
   }
 
   return (
-    <Card narrow>
-      <h1>Sign in</h1>
-      <form onSubmit={submit}>
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            autoComplete="username"
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            autoComplete="current-password"
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-        {error && <Problem problem={asProblem(error)} />}
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-      <p className={styles.hint}>
-        Demo customers, all with password <code>demo-password</code>:
-        <br />
-        <code>ada@example.test</code> · <code>grace@example.test</code>
-        <br />
-        <code>alan@example.test</code> — due diligence incomplete, so account opening is
-        refused. That path is reachable on purpose.
-      </p>
-    </Card>
+    <Box maxWidth="420px" mx="auto">
+      <Card size="3">
+        <Heading size="4" mb="4">Sign in</Heading>
+        <form onSubmit={submit}>
+          <Flex direction="column" gap="3">
+            <label>
+              <Text as="div" size="2" weight="medium" mb="1">Email</Text>
+              <TextField.Root
+                type="email"
+                value={email}
+                autoComplete="username"
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <Text as="div" size="2" weight="medium" mb="1">Password</Text>
+              <TextField.Root
+                type="password"
+                value={password}
+                autoComplete="current-password"
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </label>
+            {error && <Problem problem={asProblem(error)} />}
+            <Button type="submit" loading={isLoading} style={{ alignSelf: 'flex-start' }}>
+              Sign in
+            </Button>
+          </Flex>
+        </form>
+        <Text as="p" size="1" color="gray" mt="4">
+          Demo customers, all with password <Code size="1">demo-password</Code>:{' '}
+          <Code size="1">ada@example.test</Code> · <Code size="1">grace@example.test</Code> ·{' '}
+          <Code size="1">alan@example.test</Code> — due diligence incomplete, so account
+          opening is refused. That path is reachable on purpose.
+        </Text>
+      </Card>
+    </Box>
   );
 }

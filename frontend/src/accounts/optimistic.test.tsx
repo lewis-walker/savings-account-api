@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { Theme } from '@radix-ui/themes';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/api';
 import authReducer, { signedIn } from '../auth/authSlice';
@@ -91,7 +92,7 @@ describe('opening an account', () => {
     const { fetchMock, releaseCreate } = controllableFetch();
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<Provider store={store}><Accounts /></Provider>);
+    render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
     await screen.findByText(/no accounts yet/i);
 
     await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
@@ -101,8 +102,7 @@ describe('opening an account', () => {
     //    so there is no account number to show and the row says so.
     const pendingRow = await screen.findByText('Holiday fund');
     const row = pendingRow.closest('li')!;
-    // Scoped to the row: the submit button also reads "Opening…" while the request is
-    // in flight, and an unscoped query matches both.
+    // Scoped to the row, so this cannot accidentally match a badge elsewhere.
     expect(within(row).getByText('Opening…')).toBeInTheDocument();
     // No account number yet. The API allocates it, so until the server answers there
     // is nothing honest to put here.
@@ -135,7 +135,7 @@ describe('opening an account', () => {
     const { fetchMock, releaseCreate } = controllableFetch();
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<Provider store={store}><Accounts /></Provider>);
+    render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
     await screen.findByText(/no accounts yet/i);
 
     await userEvent.type(screen.getByRole('textbox'), 'my badword account');
@@ -166,7 +166,7 @@ describe('opening an account', () => {
       const { fetchMock, releaseCreate } = controllableFetch();
       vi.stubGlobal('fetch', fetchMock);
 
-      render(<Provider store={store}><Accounts /></Provider>);
+      render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
       await screen.findByText(/no accounts yet/i);
 
       await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
@@ -200,7 +200,7 @@ describe('opening an account', () => {
     const { fetchMock, releaseCreate } = controllableFetch();
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<Provider store={store}><Accounts /></Provider>);
+    render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
     await screen.findByText(/no accounts yet/i);
 
     await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');
@@ -235,7 +235,7 @@ describe('opening an account', () => {
       const { fetchMock, releaseCreate } = controllableFetch();
       vi.stubGlobal('fetch', fetchMock);
 
-      render(<Provider store={store}><Accounts /></Provider>);
+      render(<Provider store={store}><Theme><Accounts /></Theme></Provider>);
       await screen.findByText(/no accounts yet/i);
 
       await userEvent.type(screen.getByRole('textbox'), 'Holiday fund');

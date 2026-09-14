@@ -1,8 +1,7 @@
+import { Badge, Box, Button, Card, Flex, Heading, Text, TextField } from '@radix-ui/themes';
 import { asProblem, useListAccountsQuery } from '../api/api';
-import AccountRow from './AccountRow';
-import Card from '../ui/Card';
 import Problem from '../ui/Problem';
-import styles from './Accounts.module.css';
+import AccountRow from './AccountRow';
 import { useOpenAccount } from './useOpenAccount';
 
 const MAXIMUM_ACCOUNTS = 5;
@@ -15,65 +14,69 @@ export default function Accounts() {
   const full = confirmed >= MAXIMUM_ACCOUNTS;
 
   return (
-    <div className={styles.stack}>
-      <Card>
-        <div className={styles.head}>
-          <h1>Your savings accounts</h1>
-          <span className={full ? `${styles.count} ${styles.full}` : styles.count}>
+    <Flex direction="column" gap="4">
+      <Card size="3">
+        <Flex align="baseline" gap="3" mb="3">
+          <Heading size="4">Your savings accounts</Heading>
+          <Badge color={full ? 'red' : 'gray'} ml="auto">
             {confirmed} of {MAXIMUM_ACCOUNTS}
-          </span>
-        </div>
+          </Badge>
+        </Flex>
 
-        {isLoading && <p className={styles.muted}>Loading…</p>}
+        {isLoading && <Text color="gray">Loading…</Text>}
         {listError && <Problem problem={asProblem(listError)} />}
         {!isLoading && accounts.length === 0 && (
-          <p className={styles.muted}>No accounts yet. Open your first below.</p>
+          <Text color="gray">No accounts yet. Open your first below.</Text>
         )}
 
-        <ul className={styles.list}>
-          {accounts.map((account) => (
-            // Keyed by clientRef, never by id: a pending row has no id yet, and the key
-            // must not change when one arrives.
-            <AccountRow key={account.clientRef} account={account} />
-          ))}
-        </ul>
+        <Flex asChild direction="column" gap="2">
+          <ul className="reset">
+            {accounts.map((account) => (
+              // Keyed by clientRef, never by id: a pending row has no id yet, and the
+              // key must not change when one arrives.
+              <AccountRow key={account.clientRef} account={account} />
+            ))}
+          </ul>
+        </Flex>
       </Card>
 
-      <Card>
-        <h2>Open another account</h2>
+      <Card size="3">
+        <Heading size="3" mb="3">Open another account</Heading>
         {full ? (
-          <p className={styles.muted}>
+          <Text as="p" color="gray">
             You are holding the maximum of {MAXIMUM_ACCOUNTS} savings accounts. The
             server enforces this too — this message is a courtesy, not the rule.
-          </p>
+          </Text>
         ) : (
           <form onSubmit={submit}>
-            <label>
-              Nickname <span className={styles.optional}>optional, 5–30 characters</span>
-              <input
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                placeholder="Holiday fund"
-                maxLength={60}
-              />
-            </label>
-            <button type="submit" disabled={opening}>
-              {opening ? 'Opening…' : 'Open account'}
-            </button>
+            <Flex direction="column" gap="3">
+              <label>
+                <Text as="div" size="2" weight="medium" mb="1">
+                  Nickname <Text color="gray" weight="regular">optional, 5–30 characters</Text>
+                </Text>
+                <TextField.Root
+                  value={nickname}
+                  onChange={(event) => setNickname(event.target.value)}
+                  placeholder="Holiday fund"
+                  maxLength={60}
+                />
+              </label>
+              <Button type="submit" loading={opening} style={{ alignSelf: 'flex-start' }}>
+                Open account
+              </Button>
+            </Flex>
           </form>
         )}
 
         {failure && (
-          <div className={styles.failure}>
+          <Box mt="4">
             <Problem problem={asProblem(failure.error)} />
             {asProblem(failure.error).retryable && (
-              <button type="button" className={styles.retry} onClick={retry}>
-                Try again
-              </button>
+              <Button variant="soft" mt="3" onClick={retry}>Try again</Button>
             )}
-          </div>
+          </Box>
         )}
       </Card>
-    </div>
+    </Flex>
   );
 }

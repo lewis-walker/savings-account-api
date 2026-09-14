@@ -102,6 +102,9 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 ## Front end
 
+**Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. What is left of the application's own CSS is seven lines: a list reset, which is the one thing the library has no opinion on. Components are grouped by feature - `accounts`, `auth`, `ui` for the two pieces both use - so the folder says what the application does rather than what its files are.
+
+
 **Access tokens are stored in memory.** This avoids persistent storage in `localStorage`, where injected scripts could retrieve them. The trade-off is that refreshing the page signs the user out. A production implementation would use a refresh token in an `httpOnly` cookie.
 
 **Optimistic rows use the client reference as their React key.** Server-generated account IDs are unavailable when a row is first rendered. Reconciliation merges server values into the existing row while preserving its key. Account creation does not invalidate the list, avoiding a refetch that would rebuild rows and reintroduce flicker.

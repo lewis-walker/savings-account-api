@@ -1,33 +1,7 @@
-/* Tokens, reset and element defaults. Everything a component owns lives in its own
-   module beside it, so a class cannot be borrowed by copying its name. */
-:root {
-  --ink: #16202e; --muted: #61708a; --line: #dde4ee; --bg: #f5f7fb;
-  --panel: #ffffff; --accent: #14532d; --accent-ink: #ffffff;
-  --warn-bg: #fdf2f2; --warn-line: #f0c4c4; --warn-ink: #8a2020;
-  --pending: #8a6d1f; --pending-bg: #fdf8e8; --pending-line: #e6d9a8;
-  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color-scheme: light;
+/* Radix Themes brings the reset, the tokens and the components. This is only what it
+   has no opinion about: the list the account rows sit in. */
+ul.reset {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-main { max-width: 760px; margin: 0 auto; padding: 28px 24px 64px; }
-h1 { font-size: 19px; margin: 0 0 4px; letter-spacing: -0.01em; }
-h2 { font-size: 15px; margin: 0 0 14px; letter-spacing: -0.005em; }
-form { display: grid; gap: 14px; margin-top: 14px; }
-label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 550; }
-input {
-  font: inherit; padding: 9px 11px; border: 1px solid var(--line);
-  border-radius: 8px; background: #fff; color: inherit;
-}
-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
-button {
-  font: inherit; font-weight: 600; padding: 9px 16px; border: 1px solid transparent;
-  border-radius: 8px; background: var(--accent); color: var(--accent-ink);
-  cursor: pointer; justify-self: start;
-}
-button:disabled { opacity: 0.6; cursor: progress; }
-code { background: #eef1f7; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }

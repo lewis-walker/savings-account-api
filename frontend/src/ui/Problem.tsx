@@ -1,12 +1,12 @@
+import { Callout, Code, Flex, Text } from '@radix-ui/themes';
 import type { Problem as ProblemDetail } from '../api/types';
-import styles from './Problem.module.css';
 
 /**
- * Renders an RFC 7807 problem document.
+ * Renders an RFC 9457 problem document.
  *
- * <p>One component for every failure in the application, because the API returns one
- * shape for every failure. A validation error, a refused nickname, a full customer and a
- * database outage all arrive here and all render without a special case.
+ * <p>One component for every failure, because the API returns one shape for every
+ * failure: a validation error, a refused nickname, a full customer and a database outage
+ * all arrive here and render without a special case.
  *
  * <p>The correlation id is shown deliberately. It is on this response and on every log
  * line the request produced, so a customer reading it out is the fastest route from
@@ -14,23 +14,23 @@ import styles from './Problem.module.css';
  */
 export default function Problem({ problem }: { problem: ProblemDetail }) {
   return (
-    <div className={styles.problem} role="alert">
-      <strong>{problem.title ?? 'Something went wrong'}</strong>
-      {problem.detail && <p>{problem.detail}</p>}
-      {problem.errors && problem.errors.length > 0 && (
-        <ul>
-          {problem.errors.map((error) => (
-            <li key={error.field}>
-              <span className={styles.field}>{error.field}</span> {error.message}
-            </li>
+    <Callout.Root color="red" role="alert">
+      <Callout.Text>
+        <Flex direction="column" gap="1">
+          <Text weight="bold">{problem.title ?? 'Something went wrong'}</Text>
+          {problem.detail && <Text>{problem.detail}</Text>}
+          {problem.errors?.map((error) => (
+            <Text key={error.field} size="2">
+              <Code>{error.field}</Code> {error.message}
+            </Text>
           ))}
-        </ul>
-      )}
-      {problem.correlationId && (
-        <p className={styles.reference}>
-          Reference <code>{problem.correlationId}</code>
-        </p>
-      )}
-    </div>
+          {problem.correlationId && (
+            <Text size="1" color="gray">
+              Reference <Code size="1">{problem.correlationId}</Code>
+            </Text>
+          )}
+        </Flex>
+      </Callout.Text>
+    </Callout.Root>
   );
 }
