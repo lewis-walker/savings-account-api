@@ -23,13 +23,10 @@ import org.springframework.web.server.ResponseStatusException;
 /**
  * Issues access tokens for the demo, and publishes the public key.
  *
- * <p><b>This endpoint would not exist in production.</b> It is the OAuth 2.0 resource
- * owner password credentials grant, which OAuth 2.1 removes precisely because handing
- * a password to the client application is the thing federated identity exists to stop.
- * It is here so the demo runs without an identity provider beside it, and it is the
- * first thing that would be deleted against a real IdP.
- *
- * <p>What would be kept is {@link SecurityConfig} — the resource server half.
+ * <p><b>Would not exist in production.</b> It is the OAuth 2.0 password grant, which
+ * OAuth 2.1 removes because handing a password to the client application is the thing
+ * federated identity exists to stop. It is here so the demo runs without an identity
+ * provider beside it, and it is the first thing that would be deleted against a real one.
  */
 @RestController
 public class TokenController {
@@ -49,6 +46,8 @@ public class TokenController {
     private final PasswordEncoder passwordEncoder;
     private final String demoPasswordHash;
 
+    // @Value rather than a properties record, unlike everything else that is configured:
+    // this setting leaves with the class.
     public TokenController(JwtEncoder jwtEncoder, JwtKeys jwtKeys, SecurityProperties properties,
                            PasswordEncoder passwordEncoder,
                            @Value("${security.demo.password:demo-password}") String demoPassword) {
@@ -56,8 +55,8 @@ public class TokenController {
         this.jwtKeys = jwtKeys;
         this.properties = properties;
         this.passwordEncoder = passwordEncoder;
-        // Hashed at startup rather than compared in plain text, so the demo does not
-        // model something nobody should copy.
+        // Hashed rather than compared in plain text: the demo should not model
+        // something nobody should copy.
         this.demoPasswordHash = passwordEncoder.encode(demoPassword);
     }
 
@@ -65,13 +64,12 @@ public class TokenController {
     public TokenResponse issue(@jakarta.validation.Valid @RequestBody TokenRequest request) {
         Optional<DemoIdentities.Identity> identity = DemoIdentities.byEmail(request.email());
 
-        // Always do the hash comparison, even when the email is unknown. Returning
-        // early would make an unknown email measurably faster than a known one with a
-        // wrong password, which turns this endpoint into a way to find out who banks
-        // here. The answer is the same either way, and so is the time it takes.
+        // Hash even when the email is unknown. Returning early would make an unknown
+        // email measurably faster than a wrong password, which turns this endpoint into
+        // a way to find out who banks here.
         boolean passwordMatches = passwordEncoder.matches(request.password(), demoPasswordHash);
         if (identity.isEmpty() || !passwordMatches) {
-            // One message for both failures, for the same reason.
+            // One message for both failures, same reason.
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid credentials");
         }
 
@@ -91,10 +89,8 @@ public class TokenController {
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(properties.issuer())
                 .audience(java.util.List.of(properties.audience()))
-                // The subject is the customer id and nothing else. No name, no email:
-                // tokens ride in a header on every request and headers get logged by
-                // proxies, so a PII claim would quietly undo the log hygiene work.
-                // The name comes from the customer service, which is where it lives.
+                // The customer id and nothing else. Tokens ride in a header that
+                // proxies log, so a name or email claim would undo the log hygiene.
                 .subject(customerId.toString())
                 .issuedAt(now)
                 .expiresAt(now.plus(properties.accessTokenTtl()))

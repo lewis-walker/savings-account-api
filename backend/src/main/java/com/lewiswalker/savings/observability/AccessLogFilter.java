@@ -13,18 +13,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * One line per request: what was asked, what was answered, how long it took, and who
- * asked.
+ * One line per request: what was asked, what was answered, how long it took, who asked.
+ * A request that succeeds logs nothing on its own, so without this the correlation id
+ * has nowhere to appear.
  *
- * <p>Without it the correlation id has nowhere to appear, because a successful request
- * logs nothing on its own. In a bank it is also an audit record.
+ * <p>No query string, no headers, no bodies, and the actor as an opaque subject: all
+ * four are where personal data ends up.
  *
- * <p>No query string, which is where personal data ends up by accident; no headers, since
- * the authorization header is a bearer token; no bodies; and the actor as an opaque
- * subject rather than a name.
- *
- * <p>Ordered immediately after {@link CorrelationIdFilter} and ahead of the security
- * chain, so a request refused before it reaches a controller is still recorded.
+ * <p>Ordered ahead of the security chain so a request refused before it reaches a
+ * controller is still recorded.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
@@ -39,9 +36,7 @@ public class AccessLogFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(request, response);
         } finally {
-            // In a finally block so a request that blows up is still recorded. An
-            // access log with the failures missing from it is an access log that
-            // cannot be trusted.
+            // In a finally, so a request that blows up is still recorded.
             long millis = (System.nanoTime() - startedAt) / 1_000_000;
             log.info("{} {} {} {}ms customer={}",
                     request.getMethod(),

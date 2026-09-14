@@ -17,21 +17,13 @@ import org.springframework.stereotype.Component;
 /**
  * Keeps the last few hundred log lines in memory so they can be tailed over HTTP.
  *
- * <p>Streaming application logs to a browser is normally a bad idea, because application
- * logs tend to contain customer data. These are written not to: {@code LogHygieneTest}
- * covers the application's own logging and Hibernate's entity printing, and
- * {@code ApiExceptionHandlerTest} covers the constraint-violation path, where a failing
- * row would otherwise reach a logger. That is what makes a live tail viewable at all.
+ * <p>Streaming application logs to a browser is only safe because of what is not in
+ * them: {@code LogHygieneTest} covers the application's own logging and Hibernate's
+ * entity printing, {@code ApiExceptionHandlerTest} the constraint-violation path.
  *
- * <p>It is still an operational surface, so it is served on the management port beside
- * the feature flags and not on the port customers reach.
- *
- * <p><b>Bounded on purpose.</b> A ring buffer with a hard cap, so a service under load
- * or in a retry storm cannot turn its own logging into a memory leak. Old lines are
- * dropped, which is correct: this is a live tail for someone watching, not a record.
- * The record goes to the log aggregator, which is where anyone would actually
- * investigate anything — this is a convenience for a demo and a debugging session, and
- * is not a substitute for shipping logs somewhere durable.
+ * <p>A ring buffer with a hard cap, so a service in a retry storm cannot turn its own
+ * logging into a memory leak. Dropping old lines is correct here: this is a live tail,
+ * not a record. The record belongs in a log aggregator.
  */
 @Component
 public class LogTail {
@@ -86,8 +78,7 @@ public class LogTail {
         IThrowableProxy thrown = event.getThrowableProxy();
         String message = event.getFormattedMessage();
         if (thrown != null) {
-            // The class and message of the cause, never the stack. A tail is for seeing
-            // what is happening; forty frames per line makes that impossible.
+            // Cause and message, never the stack: forty frames a line is unreadable.
             message = message + " | " + thrown.getClassName() + ": " + thrown.getMessage();
         }
         Entry entry = new Entry(

@@ -4,32 +4,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Reads the customer master.
+ * Reads the customer master - the second integration point, after account-number
+ * allocation.
  *
- * <p>The second integration boundary, alongside account number allocation. Customer
- * data belongs to another system — the CIF on the core, or a dedicated customer
- * service — and this API owns accounts and nothing else. The token tells us <em>who</em>
- * is asking; this tells us <em>what the bank knows about them</em>.
+ * <p>Only the write path consults it, and it fails closed: no account is opened for a
+ * customer whose due diligence cannot be confirmed. Reads use the name stored on the
+ * account, which is the name it was opened under.
  *
- * <p><b>Only the write path consults it, and that is deliberate.</b>
- *
- * <p>Opening an account <b>fails closed</b>: there is no acceptable degraded mode for
- * opening an account for a customer whose due diligence cannot be confirmed, so if the
- * master is unreachable, no accounts are opened. That is the correct outcome, not a
- * limitation.
- *
- * <p>Reading an account does not call this at all. The account carries the customer
- * name <em>as at opening</em>, which is the audit fact worth displaying — the name the
- * account was opened under. The master stays authoritative for the customer's current
- * name, and drift between the two is expected rather than a defect. If this API ever
- * surfaced the current name, that read would call here and would fall back to the
- * stored snapshot when the master was unavailable: fail open on a read, fail closed on
- * a write. Today it does not, so it does not.
- *
- * <p>TODO: the real adapter. A short timeout and a circuit breaker, so a slow customer
- * service cannot exhaust this one's threads. The read-through cache is already here (see
- * the demo adapter): the lookup is remote, happens on every account opening and changes
- * rarely, which is what a cache is actually for.
+ * <p>TODO: the real adapter needs a short timeout and a circuit breaker.
  */
 public interface CustomerDirectory {
 

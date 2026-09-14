@@ -15,18 +15,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Gives every request a correlation id, puts it on every log line the request produces,
- * and returns it to the caller.
+ * and returns it to the caller. Ordered first, so nothing - including an authentication
+ * failure inside the security chain - can log before the id exists.
  *
- * <p>Ordered first so that nothing — including an authentication failure inside the
- * security chain — can log before the id exists.
- *
- * <p>The id normally comes from the gateway, which sees requests this service never will;
- * one is generated here when the header is absent. The inbound value is validated and
- * replaced rather than trusted, because it is attacker-controlled input on its way into a
- * log file (CWE-117) and a carriage return in it forges entries.
- *
- * <p>MDC is a ThreadLocal and the container pools threads, so it is cleared in a finally
- * — a leaked value is a wrong correlation id rather than a missing one.
+ * <p>The id normally comes from the gateway, which sees requests this service never
+ * will; one is generated here when the header is absent. The inbound value is validated
+ * and replaced rather than trusted: it is attacker-controlled input on its way into a
+ * log file (CWE-117), and a carriage return in it forges entries.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -48,9 +43,8 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(request, response);
         } finally {
-            // MDC is a ThreadLocal and the container pools threads. Without this, the
-            // next request served by this thread inherits the previous request's id —
-            // which is not a missing correlation, it is a wrong one.
+            // MDC is a ThreadLocal and the container pools threads: left set, the
+            // next request on this thread gets the wrong id rather than none.
             MDC.remove(MDC_KEY);
         }
     }

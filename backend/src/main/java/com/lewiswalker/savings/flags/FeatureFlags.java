@@ -22,12 +22,8 @@ public interface FeatureFlags {
     }
 
     /**
-     * Named shorthand for the cache kill switch.
-     *
-     * <p>Exists because it is referenced from a SpEL {@code condition} on
-     * {@code @Cacheable}, and the alternative spelling there is a
-     * {@code T(...)} type expression that nobody reads twice. A method the compiler
-     * checks beats a string the compiler does not.
+     * Named shorthand for the cache kill switch, because the SpEL {@code condition} on
+     * {@code @Cacheable} would otherwise carry an unchecked {@code T(...)} expression.
      */
     default boolean redisCacheEnabled() {
         return isEnabled(Feature.REDIS_CACHE);

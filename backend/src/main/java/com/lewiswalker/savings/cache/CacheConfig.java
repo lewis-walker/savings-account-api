@@ -16,19 +16,12 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Two caches with different justifications. The customer lookup is remote, happens on
- * every account opening and changes rarely. The account read is cached because the brief
- * asks; a primary-key lookup Postgres answers from its buffer pool does not need one.
- * See DECISIONS.md.
+ * Two caches: the customer lookup, which is remote and stable, and the account read,
+ * which is here because the brief asks. See DECISIONS.md.
  *
- * <p>Typed serializers rather than polymorphic JSON with default typing, so a tampered
- * entry fails to deserialize rather than instantiating whatever class it names. Null
- * values are not cached: absence is cheap to re-derive, and caching it would let anyone
- * probing for identifiers fill the cache.
- *
- * <p>The declared type is taken at its word. This named the JPA entity while the code was
- * writing {@code AccountView} records, and because the field names line up, Jackson built
- * entities out of them without error.
+ * <p>Typed serializers rather than polymorphic JSON, and nulls are not cached. The
+ * declared type is taken at its word - naming the entity here while the code writes
+ * AccountView records builds entities out of them, silently.
  */
 @Configuration
 @EnableCaching(proxyTargetClass = true)
@@ -58,8 +51,8 @@ public class CacheConfig implements CachingConfigurer {
 
     private static <T> RedisCacheConfiguration typed(Class<T> type, Duration ttl) {
         JsonMapper mapper = JsonMapper.builder()
-                // Cache entries outlive deployments. A field added to a record must not
-                // make every entry written by the previous version unreadable.
+                // Entries outlive deployments: a new field must not make every entry
+                // written by the previous version unreadable.
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .build();
         return RedisCacheConfiguration.defaultCacheConfig()

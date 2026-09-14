@@ -6,20 +6,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Records what happened to accounts, for the people whose job is to ask later.
+ * Records openings and refusals for compliance, on its own named logger so it can be
+ * routed and retained separately and cannot be turned off by lowering application
+ * logging. Identifiers and outcomes only.
  *
- * <p>A separate named logger, so audit events can be routed and retained on their own —
- * five years for AML/CFT records, seven for tax — and so that turning application logging
- * down during an incident cannot switch the audit trail off.
- *
- * <p>Identifiers and outcomes only: no name, nickname or account number. Refusal reasons
- * are recorded even though the API withholds them from the caller, because compliance
- * needs them and a customer should hear it from a person.
- *
- * <p>Fields are {@code key=value} and reasons are stable codes, so anything counting on
- * them survives a reworded message.
- *
- * <p>TODO: these belong on a durable stream. A log line can be lost when a container is
+ * <p>TODO: these belong on a durable stream; a log line can be lost when a container is
  * killed.
  */
 @Component

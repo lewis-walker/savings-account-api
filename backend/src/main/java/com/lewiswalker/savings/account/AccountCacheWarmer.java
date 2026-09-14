@@ -9,16 +9,11 @@ import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 
 /**
- * Puts a newly opened account into the cache.
+ * Puts a newly opened account into the cache. Must be called after the opening
+ * transaction has committed.
  *
- * <p>Must be called once the opening transaction has committed. A value written before
- * commit may never exist, and an eviction before commit can be repopulated from the
- * pre-commit snapshot. {@link AccountService} calls this after its
- * {@code transaction.execute(...)} returns, which is that point.
- *
- * <p>The try/catch is needed because this calls the cache directly rather than through
- * Spring's interceptor, so {@code CacheErrorHandling} does not cover it. The account is
- * already committed; a failed cache write must not fail the request.
+ * <p>Not covered by {@code CacheErrorHandling}, which only wraps Spring's caching
+ * interceptor - hence the catch. A failed warm must not fail a committed write.
  */
 @Component
 public class AccountCacheWarmer {
@@ -34,8 +29,7 @@ public class AccountCacheWarmer {
     }
 
     public void warm(AccountView account) {
-        // The kill switch covers writes too: populating a cache nobody reads would leave
-        // entries to go stale and be served when it is switched back on.
+        // The kill switch covers writes too, or entries go stale until it is switched on.
         if (!features.redisCacheEnabled()) {
             return;
         }
