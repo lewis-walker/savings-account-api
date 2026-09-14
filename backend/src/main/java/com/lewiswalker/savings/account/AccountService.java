@@ -1,12 +1,12 @@
 package com.lewiswalker.savings.account;
 
-import com.lewiswalker.savings.audit.AuditLog;
-import com.lewiswalker.savings.cache.CacheConfig;
-import com.lewiswalker.savings.customer.Customer;
-import com.lewiswalker.savings.customer.CustomerDirectory;
-import com.lewiswalker.savings.customer.CustomerNotVerifiedException;
-import com.lewiswalker.savings.customer.UnknownCustomerException;
-import com.lewiswalker.savings.nickname.OffensiveNicknameChecker;
+import com.lewiswalker.savings.platform.audit.AuditLog;
+import com.lewiswalker.savings.platform.cache.CacheConfig;
+import com.lewiswalker.savings.integration.customer.Customer;
+import com.lewiswalker.savings.integration.customer.CustomerDirectory;
+import com.lewiswalker.savings.integration.customer.CustomerNotVerifiedException;
+import com.lewiswalker.savings.integration.customer.UnknownCustomerException;
+import com.lewiswalker.savings.integration.nickname.OffensiveNicknameChecker;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

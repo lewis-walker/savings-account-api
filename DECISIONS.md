@@ -137,6 +137,12 @@ Tests are selected for the failures they would detect rather than for coverage. 
 
 One assertion required adjustment. The check that a cache entry exists immediately after commit was intermittent and now polls briefly. Correctness does not depend on that timing, because a cache miss falls through to the committed row.
 
+## Layout
+
+**Three top-level packages, so the brief is visible from the tree.** `account` is what the assignment asks for. `integration` holds the systems a bank owns elsewhere — account number allocation, the customer master, feature flags, content moderation, log aggregation — each an interface with a stand-in behind it. `platform` holds the machinery every endpoint uses: security, caching, idempotency, observability, auditing, error handling.
+
+**Each port sits with its adapter rather than in the domain.** `CustomerDirectory` is named for the customer master, not for anything in the account model, and keeping it beside `DemoCustomerDirectory` puts the seam and what is behind it in one place. The consequence is that `account` imports from `integration`, which a strict hexagonal reading would object to. The answer is that dependency inversion is satisfied by the domain depending on an interface whose implementation it cannot see; the directory a file sits in is not what inverts it. Enforcing the boundary rather than describing it would mean Spring Modulith or an ArchUnit rule, which is a larger claim than a service this size needs.
+
 ## Out of scope
 
 | Item | Rationale or next step |

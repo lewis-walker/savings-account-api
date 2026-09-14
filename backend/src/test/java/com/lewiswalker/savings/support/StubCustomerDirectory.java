@@ -1,7 +1,7 @@
 package com.lewiswalker.savings.support;
 
-import com.lewiswalker.savings.customer.Customer;
-import com.lewiswalker.savings.customer.CustomerDirectory;
+import com.lewiswalker.savings.integration.customer.Customer;
+import com.lewiswalker.savings.integration.customer.CustomerDirectory;
 import java.util.Optional;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
