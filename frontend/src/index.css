@@ -1,7 +1,0 @@
-/* Radix Themes brings the reset, the tokens and the components. This is only what it
-   has no opinion about: the list the account rows sit in. */
-ul.reset {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}

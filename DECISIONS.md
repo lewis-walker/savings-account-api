@@ -102,7 +102,7 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 ## Front end
 
-**Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. What is left of the application's own CSS is seven lines: a list reset, which is the one thing the library has no opinion on. Components are grouped by feature - `accounts`, `auth`, `ui` for the two pieces both use - so the folder says what the application does rather than what its files are.
+**Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. The application ships no CSS of its own at all. The account list stays a real `<ul>`, so a screen reader announces it as a list with a count rather than as unrelated boxes, and Radix's own `Reset` takes the bullets and padding off it. Components are grouped by feature - `accounts`, `auth`, `ui` for the two pieces both use - so the folder says what the application does rather than what its files are.
 
 
 **Access tokens are stored in memory.** This avoids persistent storage in `localStorage`, where injected scripts could retrieve them. The trade-off is that refreshing the page signs the user out. A production implementation would use a refresh token in an `httpOnly` cookie.

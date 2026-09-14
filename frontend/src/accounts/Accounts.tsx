@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Card, Flex, Heading, Text, TextField } from '@radix-ui/themes';
+import { Badge, Box, Button, Card, Flex, Heading, Reset, Text, TextField } from '@radix-ui/themes';
 import { asProblem, useListAccountsQuery } from '../api/api';
 import Problem from '../ui/Problem';
 import AccountRow from './AccountRow';
@@ -29,14 +29,18 @@ export default function Accounts() {
           <Text color="gray">No accounts yet. Open your first below.</Text>
         )}
 
+        {/* A real list, so it is announced as one with its length. Reset takes the
+            browser's bullets and padding off it. */}
         <Flex asChild direction="column" gap="2">
-          <ul className="reset">
-            {accounts.map((account) => (
-              // Keyed by clientRef, never by id: a pending row has no id yet, and the
-              // key must not change when one arrives.
-              <AccountRow key={account.clientRef} account={account} />
-            ))}
-          </ul>
+          <Reset>
+            <ul>
+              {accounts.map((account) => (
+                // Keyed by clientRef, never by id: a pending row has no id yet, and the
+                // key must not change when one arrives.
+                <AccountRow key={account.clientRef} account={account} />
+              ))}
+            </ul>
+          </Reset>
         </Flex>
       </Card>
 

@@ -5,7 +5,6 @@ import { Theme } from '@radix-ui/themes';
 import '@radix-ui/themes/styles.css';
 import App from './App';
 import { store } from './store';
-import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
