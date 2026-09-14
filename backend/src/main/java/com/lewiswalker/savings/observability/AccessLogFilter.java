@@ -16,30 +16,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * One line per request: what was asked, what was answered, how long it took, and who
  * asked.
  *
- * <p>Without this the correlation id is decoration. A successful request logs nothing
- * on its own, so an id that is faithfully placed in the MDC has nowhere to appear, and
- * a support reference that matches no log line is worse than useless. This is the line
- * it matches.
+ * <p>Without it the correlation id has nowhere to appear, because a successful request
+ * logs nothing on its own. In a bank it is also an audit record.
  *
- * <p>In a bank it is also an audit record: who did what, when, and what the system
- * said. That shapes what goes in it.
+ * <p>No query string, which is where personal data ends up by accident; no headers, since
+ * the authorization header is a bearer token; no bodies; and the actor as an opaque
+ * subject rather than a name.
  *
- * <h2>What is deliberately absent</h2>
- *
- * <ul>
- *   <li><b>The query string.</b> Excluded outright rather than filtered. Query
- *       parameters are where personal data ends up by accident, and once a value is in
- *       an access log it is also in every log aggregator downstream.
- *   <li><b>Headers and bodies.</b> The authorization header is a bearer token, and a
- *       request body is the customer's own words.
- *   <li><b>The customer's name.</b> The subject claim identifies the actor well enough
- *       for audit, and an opaque identifier means nothing to anyone reading the log
- *       without database access. That is the property worth having.
- * </ul>
- *
- * <p>Ordered immediately after {@link CorrelationIdFilter} so the id is already in the
- * MDC, and before everything else so a request rejected by the security chain is still
- * recorded — a refused request is precisely the one an auditor wants to see.
+ * <p>Ordered immediately after {@link CorrelationIdFilter} and ahead of the security
+ * chain, so a request refused before it reaches a controller is still recorded.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)

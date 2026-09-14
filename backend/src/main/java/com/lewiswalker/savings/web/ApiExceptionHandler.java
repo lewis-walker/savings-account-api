@@ -34,21 +34,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 /**
  * Turns every failure into {@code application/problem+json} (RFC 9457, which obsoleted
- * RFC 7807).
+ * RFC 7807), so the client parses one shape for validation errors, refusals and outages
+ * alike.
  *
- * <p>One shape for every error means the frontend parses one thing. Field-level
- * validation arrives in the same envelope as a refused nickname and a database outage,
- * so there is no bespoke branch per failure mode.
- *
- * <h2>Two rules that matter more than the shape</h2>
- *
- * <p><b>Nothing internal reaches the caller.</b> A database exception's message can
- * carry schema names, SQL, and the values that were being written. Every handler here
- * emits a fixed, safe string; the real exception goes to the log.
- *
- * <p><b>The correlation id links the two.</b> It is on the problem response and on the
- * log line, so a customer quoting a reference lets support find the failure without the
- * response having carried anything sensitive.
+ * <p>Two rules matter more than the format. Nothing internal reaches the caller: a
+ * database exception's message can carry SQL, schema names and the values being written.
+ * And every problem document carries the correlation id, so a reference a customer quotes
+ * leads to the log line without the response having carried anything sensitive.
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {

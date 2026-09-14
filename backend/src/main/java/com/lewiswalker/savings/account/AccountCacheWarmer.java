@@ -11,35 +11,15 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Puts a newly opened account into the cache, after the transaction commits.
+ * Puts a newly opened account into the cache once the transaction has committed.
  *
- * <h2>Why after commit, and not on the write method</h2>
+ * <p>After commit rather than {@code @CachePut} on the write: a value written before
+ * commit may never exist, and an eviction before commit can be repopulated from the
+ * pre-commit snapshot. See DECISIONS.md.
  *
- * <p>The obvious implementation is {@code @CachePut} or {@code @CacheEvict} on the
- * method that writes. Both run while the transaction is still open, and that is a
- * correctness bug rather than a style preference:
- *
- * <ul>
- *   <li>A {@code @CachePut} before commit publishes a value that may never exist. If
- *       the transaction rolls back, the cache is now serving an account the database
- *       does not have.
- *   <li>A {@code @CacheEvict} before commit opens a window between the eviction and the
- *       commit in which a concurrent read repopulates the cache from the pre-commit
- *       snapshot — pinning stale data until the TTL expires.
- * </ul>
- *
- * <p>{@code AFTER_COMMIT} has neither problem. The value written here is the committed
- * value, so create-then-read is consistent <em>by construction</em> rather than by the
- * eviction happening to win a race. In a bank, opening an account and then not seeing it
- * is not a slow cache, it is a wrong answer.
- *
- * <h2>Why the try/catch</h2>
- *
- * <p>{@link com.lewiswalker.savings.cache.CacheErrorHandling} covers failures inside
- * Spring's caching interceptor — the {@code @Cacheable} path. This is a direct call to
- * the cache API and is not intercepted, so a Redis outage here would throw into the
- * transaction synchronisation callback. The account is already committed at this point;
- * losing the cache warm is not worth turning a successful write into an error.
+ * <p>The try/catch is needed because this calls the cache directly rather than through
+ * Spring's interceptor, so {@code CacheErrorHandling} does not cover it. The account is
+ * already committed; a failed cache write must not fail the request.
  */
 @Component
 public class AccountCacheWarmer {
@@ -56,9 +36,8 @@ public class AccountCacheWarmer {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onAccountOpened(AccountOpened event) {
-        // The kill switch has to cover writes as well as reads. Switching the cache off
-        // while still populating it would leave entries nobody reads, quietly going
-        // stale, ready to be served the moment someone switches it back on.
+        // The kill switch covers writes too: populating a cache nobody reads would leave
+        // entries to go stale and be served when it is switched back on.
         if (!features.redisCacheEnabled()) {
             return;
         }

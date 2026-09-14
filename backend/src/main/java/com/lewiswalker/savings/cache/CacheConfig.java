@@ -16,43 +16,19 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Two caches, with very different justifications.
+ * Two caches with different justifications. The customer lookup is remote, happens on
+ * every account opening and changes rarely. The account read is cached because the brief
+ * asks; a primary-key lookup Postgres answers from its buffer pool does not need one.
+ * See DECISIONS.md.
  *
- * <h2>customers — earns its keep</h2>
+ * <p>Typed serializers rather than polymorphic JSON with default typing, so a tampered
+ * entry fails to deserialize rather than instantiating whatever class it names. Null
+ * values are not cached: absence is cheap to re-derive, and caching it would let anyone
+ * probing for identifiers fill the cache.
  *
- * A lookup against another system, over a network, on every account opening, for data
- * that changes rarely. Remote, hot, and stable is what a cache is actually for.
- *
- * <h2>accounts — does not</h2>
- *
- * The brief asks for the GET to be cached, so it is. It should be said plainly that it
- * buys nothing: this is a primary-key lookup on a narrow table, which Postgres serves
- * from its own buffer pool in microseconds. Putting Redis in front adds a network hop,
- * a serialisation cost, an invalidation problem and a new failure mode, in order to
- * speed up something that was never slow.
- *
- * <p>It is built correctly anyway, because the interesting part is what "correctly"
- * costs — see {@code AccountCacheWarmer} for the read-after-write rule, and
- * {@link CacheErrorHandling} for why Redis being down is not this application's problem.
- *
- * <h2>Two choices worth defending</h2>
- *
- * <p><b>Typed serializers, not polymorphic JSON.</b> The convenient option is a generic
- * serializer with default typing switched on, which writes a Java class name into every
- * cache entry and instantiates whatever it reads back. That is a deserialization gadget
- * waiting for someone with write access to the cache. Each cache here declares the one
- * type it holds, so a tampered entry fails to deserialize rather than executing.
- *
- * <p>The cost of that choice, learned the hard way: the declared type is taken at its
- * word. This originally named the JPA entity here while the cache was being written
- * AccountView records, and because the field names line up, Jackson quietly built
- * entities out of them. No error, wrong type. A typed serializer removes the gadget
- * problem; it does not remove the obligation to name the right type.
- *
- * <p><b>Null values are not cached.</b> Absence is cheap to re-derive and caching it
- * lets anyone probing for identifiers fill the cache with negative entries. It also
- * keeps the typed serializers honest, since Spring's null marker is not of the declared
- * type.
+ * <p>The declared type is taken at its word. This named the JPA entity while the code was
+ * writing {@code AccountView} records, and because the field names line up, Jackson built
+ * entities out of them without error.
  */
 @Configuration
 @EnableCaching(proxyTargetClass = true)

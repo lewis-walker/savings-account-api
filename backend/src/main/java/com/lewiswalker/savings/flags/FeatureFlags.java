@@ -1,34 +1,17 @@
 package com.lewiswalker.savings.flags;
 
 /**
- * Evaluates feature flags.
+ * Evaluates feature flags. Backed by LaunchDarkly in production, whose SDK evaluates
+ * locally against a streamed store, so this is a map lookup and safe on a hot path.
  *
- * <p>The third integration port, alongside the customer directory and account number
- * allocation. In this estate it would be backed by LaunchDarkly: the SDK holds a
- * streaming connection to the flag service, keeps an in-memory store up to date, and
- * evaluates locally — so {@link #isEnabled} is a map lookup, not a network call, and is
- * safe to put on a hot path.
+ * <p>Four constraints on any implementation. Evaluate on every call and never cache into
+ * a field, or the flag becomes a property needing a restart. Never throw, because a
+ * switch must not be able to fail a request. Evaluate against a context, so targeting is
+ * possible later without changing call sites. And put no personal data in that context,
+ * because all of it is sent to a third party.
  *
- * <p><b>Four things this interface exists to make non-negotiable.</b>
- *
- * <ol>
- *   <li><b>Evaluated per call, never cached in a field.</b> Reading a flag once at
- *       startup and keeping it turns a flag back into a configuration property that
- *       needs a restart, which defeats the entire purpose.
- *   <li><b>It cannot throw.</b> An implementation that propagates a failure from the
- *       flag service makes that service a hard dependency of every request — which is
- *       an absurd thing for a switch to be. Failures return {@link Feature#defaultValue}.
- *   <li><b>Evaluated against a context</b>, so targeting and progressive rollout are
- *       possible rather than needing a redesign later.
- *   <li><b>The context carries no personal data.</b> Everything in it goes to a third
- *       party and appears in their dashboard.
- * </ol>
- *
- * <p>TODO: the LaunchDarkly adapter. It needs the SDK key from a secret store rather
- * than configuration, an offline mode so local development and tests do not talk to a
- * SaaS service, and the evaluation events it emits are worth keeping — knowing which
- * variation a customer actually received is the only way to explain their behaviour
- * afterwards.
+ * <p>TODO: the LaunchDarkly adapter needs its SDK key from a secret store, an offline
+ * mode for tests, and its evaluation events retained.
  */
 public interface FeatureFlags {
 

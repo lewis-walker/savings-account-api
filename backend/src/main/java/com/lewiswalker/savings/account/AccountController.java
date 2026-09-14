@@ -37,22 +37,14 @@ public class AccountController {
     /**
      * Opens a savings account for the authenticated customer.
      *
-     * <p>Answers 201 with a Location header. Not 202: the account is committed before this
-     * returns. That distinction is what lets the optimistic front end stay honest — it
-     * shows a pending row because the row is pending, and the server never claims a
-     * durability it does not have. Were account numbers allocated by a core banking
-     * platform over a batch window, this would become 202 and a pending resource, and the
-     * front end would not have to change.
+     * <p>201 rather than 202: the account is committed before this returns. Against a core
+     * banking platform allocating over a batch window it would be 202 and a pending
+     * resource, and the front end would not have to change.
      *
-     * <h2>{@code Idempotency-Key}</h2>
-     *
-     * <p>Optional, and honoured when present. A client that retries after a timeout cannot
-     * otherwise tell the server "this is the same request I already sent", and against a
-     * cap of five accounts a lost response would silently cost the customer a slot.
-     *
-     * <p>Optional rather than required so the API can be exercised with curl without
-     * ceremony. A production API would require it on every unsafe method, because the
-     * protection is only worth what the least careful client does.
+     * <p>{@code Idempotency-Key} is optional and honoured when present, so a client that
+     * retries after a timeout does not consume one of the customer's five slots. Optional
+     * only so the API can be exercised without ceremony; a production API would require it
+     * on every unsafe method.
      */
     @PostMapping
     public ResponseEntity<AccountResponse> open(
