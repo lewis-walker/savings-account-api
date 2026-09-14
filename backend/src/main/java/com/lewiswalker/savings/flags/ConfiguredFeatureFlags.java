@@ -9,12 +9,11 @@ import org.springframework.stereotype.Component;
 /**
  * In-process stand-in for LaunchDarkly.
  *
- * <p>Values come from configuration, and can be changed at runtime through
- * {@link #override} so the switching behaviour is exercisable rather than theoretical.
- * What it does not have is the part that matters operationally: a streaming connection
- * that pushes a change to every instance within a second or two of someone clicking a
- * toggle. That is the whole reason a bank pays for a flag service instead of using a
- * configuration property, and it is the piece this cannot pretend to.
+ * <p>Values come from configuration and can be changed at runtime through
+ * {@link #override}, so the switching behaviour can be exercised. What it lacks is the
+ * streaming connection that pushes a change to every instance within a second or two of
+ * someone moving a toggle, which is the operational reason to use a flag service rather
+ * than a configuration property.
  *
  * <p>Evaluation is a map lookup and never throws — see the port for why that is a
  * requirement and not an optimisation.

@@ -50,6 +50,10 @@ FROM eclipse-temurin:21-jre AS runtime
 # from outside the container and needs nothing installed inside it, which is why
 # a production image would be distroless — no shell, no package manager, far less
 # to patch.
+# One package, so that compose can health-check the container. Unpinned, which is a
+# reproducibility hole in an image whose whole claim is that it builds from nothing -
+# a production build would pin the version or, better, use a distroless base and let
+# the orchestrator probe from outside, needing nothing installed at all.
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/* \

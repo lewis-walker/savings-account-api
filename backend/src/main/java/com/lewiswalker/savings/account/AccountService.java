@@ -149,10 +149,9 @@ public class AccountService {
      * cache with a hit rate of nearly zero.
      */
     @Cacheable(value = CacheConfig.ACCOUNTS, key = "#id",
-            // Evaluated on every call, so flipping the switch takes effect on the next
-            // request rather than the next deployment. That is the entire point: a
-            // configuration property would need a restart, which is exactly what nobody
-            // wants during the incident that made them want the switch.
+            // Evaluated on every call, so moving the switch takes effect on the next
+            // request rather than the next deployment. A configuration property would
+            // need a restart, which is the last thing wanted mid-incident.
             condition = "@featureFlags.redisCacheEnabled()",
             // Absence is not cached (disableCachingNullValues), and without this Spring
             // still attempts the write and the cache rejects it - so every request for an

@@ -35,9 +35,8 @@ import org.springframework.resilience.annotation.EnableResilientMethods;
  * won, and the next slot is free <em>now</em>. Exponential backoff would make it slower
  * for no reason whatsoever.
  *
- * <p><b>Jitter is not optional.</b> Without it, every client that failed at the same
- * moment retries at the same moment, and the herd arrives together. Spring's policy
- * takes it as a first-class attribute, which is a good sign.
+ * <p>Every policy sets jitter. Without it, clients that failed at the same moment retry
+ * at the same moment and arrive together.
  *
  * <p>And the honest note: the retry that matters most is the caller's, not ours. A 503
  * from this service carries {@code retryable: true} precisely so the client can decide,
@@ -45,8 +44,8 @@ import org.springframework.resilience.annotation.EnableResilientMethods;
  * retry inside a synchronous request can only ever spend the caller's patience for them.
  */
 /*
- * proxyTargetClass = true is not a preference. Without it this configuration is
- * decorative, and silently so.
+ * proxyTargetClass = true is required here. Without it this configuration has no effect,
+ * and no error says so.
  *
  * Every adapter here implements a port interface, so the default JDK proxy implements
  * that interface. The advisor's pointcut inspects the target class, finds @Retryable on
@@ -64,8 +63,8 @@ import org.springframework.resilience.annotation.EnableResilientMethods;
  * not of the question being asked: an in-process adapter and a call to a mainframe
  * deserve different answers, and the port should not presume either.
  *
- * Found by a test that counts attempts. A test that only asserted the call eventually
- * succeeded would have passed against a proxy doing nothing at all.
+ * Found by a test that counts attempts; one asserting only that the call eventually
+ * succeeded would have passed against a proxy that did nothing.
  */
 @Configuration
 @EnableResilientMethods(proxyTargetClass = true)

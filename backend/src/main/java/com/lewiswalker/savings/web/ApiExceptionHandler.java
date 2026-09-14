@@ -33,7 +33,8 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Turns every failure into RFC 7807 {@code application/problem+json}.
+ * Turns every failure into {@code application/problem+json} (RFC 9457, which obsoleted
+ * RFC 7807).
  *
  * <p>One shape for every error means the frontend parses one thing. Field-level
  * validation arrives in the same envelope as a refused nickname and a database outage,
@@ -45,10 +46,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * carry schema names, SQL, and the values that were being written. Every handler here
  * emits a fixed, safe string; the real exception goes to the log.
  *
- * <p><b>The correlation id is the bridge.</b> It is on the problem response and on the
- * log line, so a customer quoting their reference lets support find the exact failure
- * without the response ever having carried anything sensitive. That is the whole reason
- * the correlation id exists, rather than being decoration.
+ * <p><b>The correlation id links the two.</b> It is on the problem response and on the
+ * log line, so a customer quoting a reference lets support find the failure without the
+ * response having carried anything sensitive.
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
@@ -188,9 +188,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         // database is actually down. Found by stopping the container, not by reading.
         //
         // Anything reaching here was not a violation the service understood, so from
-        // the caller's point of view it is infrastructure: 503, not 500. The message is
-        // emphatically not passed through - it can carry SQL, schema names and the
-        // values being written.
+        // the caller's point of view it is infrastructure: 503, not 500. The message is not
+        // passed through: it can carry SQL, schema names and the values being written.
         log.error("database access failed", e);
         ProblemDetail problem = problem(HttpStatus.SERVICE_UNAVAILABLE, "temporarily-unavailable",
                 "Temporarily unavailable",
