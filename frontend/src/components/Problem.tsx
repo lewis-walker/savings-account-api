@@ -1,4 +1,5 @@
 import type { Problem as ProblemDetail } from '../api/types';
+import styles from './Problem.module.css';
 
 /**
  * Renders an RFC 7807 problem document.
@@ -13,20 +14,20 @@ import type { Problem as ProblemDetail } from '../api/types';
  */
 export default function Problem({ problem }: { problem: ProblemDetail }) {
   return (
-    <div className="problem" role="alert">
+    <div className={styles.problem} role="alert">
       <strong>{problem.title ?? 'Something went wrong'}</strong>
       {problem.detail && <p>{problem.detail}</p>}
       {problem.errors && problem.errors.length > 0 && (
         <ul>
           {problem.errors.map((error) => (
             <li key={error.field}>
-              <span className="field">{error.field}</span> {error.message}
+              <span className={styles.field}>{error.field}</span> {error.message}
             </li>
           ))}
         </ul>
       )}
       {problem.correlationId && (
-        <p className="reference">
+        <p className={styles.reference}>
           Reference <code>{problem.correlationId}</code>
         </p>
       )}

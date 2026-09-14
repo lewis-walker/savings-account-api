@@ -1,0 +1,16 @@
+.app { min-height: 100vh; }
+.masthead {
+  background: var(--panel); border-bottom: 1px solid var(--line);
+  padding: 14px 24px; display: flex; align-items: center; gap: 12px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
+.mark { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); display: inline-block; }
+.who {
+  margin-left: auto; color: var(--muted); font-size: 13.5px;
+  display: flex; align-items: center; gap: 12px;
+}
+.signOut {
+  background: none; border: 0; padding: 0; color: var(--accent);
+  font: inherit; font-size: 13.5px; font-weight: 550;
+  text-decoration: underline; cursor: pointer;
+}

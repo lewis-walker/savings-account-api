@@ -1,0 +1,12 @@
+.stack { display: grid; gap: 20px; }
+.head { display: flex; align-items: baseline; gap: 12px; }
+.count {
+  margin-left: auto; font-size: 13px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.full { color: var(--warn-ink); font-weight: 600; }
+.muted { color: var(--muted); }
+.optional { font-weight: 400; color: var(--muted); }
+.list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+.failure { margin-top: 16px; }
+.retry { background: #fff; color: var(--ink); border-color: var(--line); margin-top: 10px; }

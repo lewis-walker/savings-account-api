@@ -2,7 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { useDispatch } from 'react-redux';
 import { api, asProblem, useSignInMutation } from '../api/api';
 import { signedIn } from '../auth/authSlice';
+import Card from './Card';
 import Problem from './Problem';
+import styles from './SignIn.module.css';
 
 export default function SignIn() {
   const [email, setEmail] = useState('ada@example.test');
@@ -27,7 +29,7 @@ export default function SignIn() {
   }
 
   return (
-    <div className="card narrow">
+    <Card narrow>
       <h1>Sign in</h1>
       <form onSubmit={submit}>
         <label>
@@ -55,7 +57,7 @@ export default function SignIn() {
           {isLoading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
-      <p className="hint">
+      <p className={styles.hint}>
         Demo customers, all with password <code>demo-password</code>:
         <br />
         <code>ada@example.test</code> · <code>grace@example.test</code>
@@ -63,6 +65,6 @@ export default function SignIn() {
         <code>alan@example.test</code> — due diligence incomplete, so account opening is
         refused. That path is reachable on purpose.
       </p>
-    </div>
+    </Card>
   );
 }

@@ -101,7 +101,6 @@ describe('opening an account', () => {
     //    so there is no account number to show and the row says so.
     const pendingRow = await screen.findByText('Holiday fund');
     const row = pendingRow.closest('li')!;
-    expect(row).toHaveClass('pending');
     // Scoped to the row: the submit button also reads "Opening…" while the request is
     // in flight, and an unscoped query matches both.
     expect(within(row).getByText('Opening…')).toBeInTheDocument();
@@ -129,7 +128,6 @@ describe('opening an account', () => {
     //    the row were keyed by the account id, React would have unmounted this node and
     //    mounted a new one when the id arrived.
     expect(screen.getByText('Holiday fund').closest('li')).toBe(row);
-    expect(row).not.toHaveClass('pending');
     expect(within(row).queryByText('Opening…')).not.toBeInTheDocument();
   });
 
