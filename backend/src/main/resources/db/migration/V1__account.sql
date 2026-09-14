@@ -1,5 +1,10 @@
 -- The brief asks for a single table, and this is it.
 --
+-- Editing this file changes its checksum, and Flyway refuses to start against a database
+-- where the old one was applied. That is correct and deliberate on Flyway's part: an
+-- applied migration is immutable, and a change to one is a new migration. It is edited
+-- here only because it has never been applied anywhere that outlives a `down -v`.
+--
 -- Two things are enforced here rather than in Java, deliberately:
 --
 --   1. "A customer cannot create more than 5 accounts."
@@ -30,8 +35,8 @@ create table account (
     -- 1..5, dense per customer. See note 1 above.
     sequence_no     smallint     not null,
 
-    -- Optimistic locking. Also lets the read cache stay monotonic: a late write
-    -- can never overwrite a newer entry with an older one.
+    -- Optimistic locking, for the update path this service does not yet have. Nothing
+    -- updates an account, so every row stays at 0.
     version         bigint       not null default 0,
 
     created_at      timestamptz  not null default now(),

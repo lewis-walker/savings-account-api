@@ -14,9 +14,10 @@ import org.springframework.stereotype.Component;
 /**
  * Checks a nickname against a blocked list held in a resource file.
  *
- * <p>Matching normalises first — lower-cased, and anything that is not a letter or
- * digit removed — so {@code B a d.W0rd} does not walk past a list containing
- * {@code badw0rd}. Leetspeak folding (0 to o, 1 to l) catches the cheapest evasions.
+ * <p>Matching normalises first: lower-cased, then leetspeak folded (0 to o, 1 to l,
+ * {@code @} to a), then everything that is not a letter removed — digits included, which
+ * is why the folding has to run first. So {@code B a d.W0rd} does not walk past a list
+ * containing {@code badword}.
  *
  * <p>Matching is on substrings, which is the right trade for a bank: a false positive
  * costs the customer a second attempt at a nickname, a false negative puts a slur on a

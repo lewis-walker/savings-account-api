@@ -45,9 +45,11 @@ public class AccountWriter {
         short sequenceNo = repository.nextSequenceNo(customerId);
 
         // Cheap pre-check purely so the common "customer is full" case returns a clean
-        // answer without provoking a constraint. It is not the enforcement — a
-        // concurrent request can still take the last slot between here and the insert,
-        // which is what the CHECK below is for.
+        // answer without provoking a constraint. It is not the enforcement: a concurrent
+        // request can still take the last slot between here and the insert, and the
+        // unique index below is what resolves that — both requests compute the same
+        // sequence number, one loses, and the loser retries and finds the customer full.
+        // The CHECK bounds the series rather than resolving the race.
         if (sequenceNo > cap) {
             throw new AccountCapReachedException(customerId, cap);
         }

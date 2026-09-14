@@ -11,11 +11,15 @@
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /build
 
-# Build scripts first, sources second. A source-only change then reuses the
-# dependency resolution layer instead of re-downloading the world.
+# Build scripts first, sources second, so a source-only change does not invalidate
+# this layer. Dependency downloads are served by the BuildKit cache mount below, which
+# is machine-local - it is not in the image and does not exist on a clean clone or in
+# CI, where the first build downloads everything.
+#
+# chmod because .gitattributes does not set the executable bit on gradlew.
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle/ gradle/
-RUN chmod +x ./gradlew && ./gradlew --no-daemon --version > /dev/null
+RUN chmod +x ./gradlew
 
 COPY src/ src/
 # Tests are deliberately not run here. They use Testcontainers, which needs a

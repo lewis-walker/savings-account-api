@@ -31,12 +31,14 @@ class SecurityTest {
     private JwtDecoder jwtDecoder;
 
     @Test
-    @DisplayName("an unknown endpoint is refused rather than reported - default deny")
+    @DisplayName("an unmapped path is refused rather than reported - default deny")
     void everythingIsAuthenticatedByDefault() throws Exception {
-        // /accounts has no controller yet, and still answers 401 rather than 404,
-        // because security runs first and the rule is deny by default. A new endpoint
-        // is protected because nobody remembered to protect it.
-        mockMvc.perform(get("/accounts")).andExpect(status().isUnauthorized());
+        // A path with no controller at all answers 401 rather than 404, because the
+        // security chain runs before dispatch and the rule is deny by default. Pointed at
+        // a genuinely unmapped path: this used to hit /accounts, which acquired a
+        // controller in the commit after the test was written, so it stopped testing the
+        // property its name claims and started duplicating unauthenticatedIsRefused.
+        mockMvc.perform(get("/no-such-endpoint")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -73,8 +75,13 @@ class SecurityTest {
         // banks here.
         assertThat(wrongPassword.getResponse().getStatus()).isEqualTo(401);
         assertThat(unknownEmail.getResponse().getStatus()).isEqualTo(401);
-        assertThat(unknownEmail.getResponse().getErrorMessage())
-                .isEqualTo(wrongPassword.getResponse().getErrorMessage());
+
+        // The BODY, not getErrorMessage(). ResponseStatusException is rendered as a
+        // problem document rather than through sendError, so getErrorMessage() is null on
+        // both responses and comparing them asserted null == null - which passes happily
+        // against a controller that says "no such email" and "wrong password".
+        assertThat(unknownEmail.getResponse().getContentAsString())
+                .isEqualTo(wrongPassword.getResponse().getContentAsString());
     }
 
     @Test
@@ -87,11 +94,14 @@ class SecurityTest {
         assertThat(body).contains("RSA");
         assertThat(body).contains("kid");
         // RSA private material rides in d, p, q, dp, dq and qi. Their absence is the
-        // entire contract of this endpoint, so it is asserted rather than assumed.
+        // entire contract of this endpoint, so every one of them is asserted rather than
+        // assumed - and dq is listed explicitly, because doesNotContain("\"q\":") does
+        // not cover it.
         assertThat(body).doesNotContain("\"d\":");
         assertThat(body).doesNotContain("\"p\":");
         assertThat(body).doesNotContain("\"q\":");
         assertThat(body).doesNotContain("\"dp\":");
+        assertThat(body).doesNotContain("\"dq\":");
         assertThat(body).doesNotContain("\"qi\":");
     }
 

@@ -95,17 +95,16 @@ public class AccountService {
         });
 
         if (!customer.mayOpenAccounts()) {
-            // Audited because it is exactly the sort of thing somebody asks about
-            // later. Under AML/CFT an attempt to open an account by a customer whose
-            // due diligence is not complete is a reportable event, and a pattern of
-            // them is a signal in its own right - which is only visible if each one
-            // left a record.
+            // Under AML/CFT the bank must not establish the relationship until customer
+            // due diligence is complete. The refusal itself is not a reportable event -
+            // the Act's reports are suspicious activity and prescribed transaction
+            // reports - but it is recorded because a pattern of refusals is a signal in
+            // its own right, and that is only visible if each one left a record.
             auditLog.accountRefused(customerId,
                     "due-diligence-" + customer.dueDiligence().name().toLowerCase());
             throw new CustomerNotVerifiedException(customer.dueDiligence());
         }
 
-        SequenceContendedException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
                 AccountView opened = transaction.execute(status ->
@@ -117,7 +116,6 @@ public class AccountService {
                 auditLog.accountRefused(customerId, "account-limit-reached");
                 throw e;
             } catch (SequenceContendedException e) {
-                last = e;
                 log.debug("sequence contended for customer {}, attempt {} of {}",
                         customerId, attempt, MAX_ATTEMPTS);
             }
@@ -127,6 +125,12 @@ public class AccountService {
         log.warn("gave up opening an account for customer {} after {} contended attempts",
                 customerId, MAX_ATTEMPTS);
         auditLog.accountRefused(customerId, "account-limit-reached");
+        // AccountCapReachedException really is the right answer here, which is not
+        // obvious. Each loss means the slot this attempt targeted was taken by someone
+        // who committed, and the next read returns a higher maximum - so the targets
+        // advance 1, 2, 3, ... Losing MAX_ATTEMPTS times therefore means every slot up to
+        // the cap is gone, and the customer is genuinely full. The loop bound and the cap
+        // are the same number for exactly this reason.
         throw new AccountCapReachedException(customerId, ACCOUNTS_PER_CUSTOMER);
     }
 
@@ -149,7 +153,13 @@ public class AccountService {
             // request rather than the next deployment. That is the entire point: a
             // configuration property would need a restart, which is exactly what nobody
             // wants during the incident that made them want the switch.
-            condition = "@featureFlags.redisCacheEnabled()")
+            condition = "@featureFlags.redisCacheEnabled()",
+            // Absence is not cached (disableCachingNullValues), and without this Spring
+            // still attempts the write and the cache rejects it - so every request for an
+            // account that does not exist logged a cache failure against a perfectly
+            // healthy Redis. Note #result is the value inside the Optional, not the
+            // Optional, so this is the spelling that works.
+            unless = "#result == null")
     @Transactional(readOnly = true)
     public Optional<AccountView> findById(UUID id) {
         return repository.findById(id).map(AccountView::of);

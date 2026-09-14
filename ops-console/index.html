@@ -96,14 +96,19 @@
     </h2>
     <div class="logs" id="logs"></div>
     <p class="note">
-      Safe to show because these logs carry no customer data — no names, no nicknames, no
-      account numbers. That is asserted by a test, not assumed. The bracketed value is the
-      correlation id, which is also on the error response a customer would quote.
+      These logs are written to carry identifiers rather than customer attributes, which
+      is what makes a live tail viewable at all. The bracketed value is the first eight
+      characters of the correlation id — hover for the whole of it — and the same id is on
+      the error response a customer would quote.
     </p>
   </section>
 </main>
 
 <script>
+  // Declared first: everything rendered into innerHTML goes through this.
+  const escape = (s) => String(s ?? '').replace(/[&<>"]/g,
+    c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
   const api = (path) => fetch(path, { headers: { 'Accept': 'application/json' } });
   let cursor = 0;
 
@@ -123,13 +128,15 @@
 
   function renderFlag(f) {
     const differs = f.enabled !== f.defaultValue;
+    // Escaped like the log lines. These values are server-side constants today, so this
+    // is consistency rather than a fix - the rule should not depend on knowing that.
     return `<div class="flag">
       <div class="flag-top">
-        <span class="flag-key">${f.key}</span>
-        <button class="toggle" role="switch" data-key="${f.key}"
-                aria-checked="${f.enabled}" aria-label="toggle ${f.key}"></button>
+        <span class="flag-key">${escape(f.key)}</span>
+        <button class="toggle" role="switch" data-key="${escape(f.key)}"
+                aria-checked="${f.enabled}" aria-label="toggle ${escape(f.key)}"></button>
       </div>
-      <div class="flag-desc">${f.description}</div>
+      <div class="flag-desc">${escape(f.description)}</div>
       <div class="flag-meta">
         fail-safe default: ${f.defaultValue}${differs ? ' · currently overridden' : ''}
       </div>
@@ -173,18 +180,18 @@
     }
   }
 
-  const escape = (s) => String(s ?? '').replace(/[&<>"]/g,
-    c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-
   function renderLine(e) {
     const time = new Date(e.at).toLocaleTimeString('en-NZ', { hour12: false }) +
       '.' + String(new Date(e.at).getMilliseconds()).padStart(3, '0');
     const cid = e.correlationId ? e.correlationId.slice(0, 8) : '';
+    // The full correlation id in the title, because the visible eight characters are not
+    // what a customer reads off an error response.
+    const full = escape(e.correlationId || '');
     return `<div class="line">
       <span class="t">${time}</span>
       <span class="lv ${escape(e.level)}">${escape(e.level)}</span>
       <span class="lg" title="${escape(e.logger)}">${escape(e.logger)}</span>
-      <span class="msg"><span class="cid">${cid ? '[' + escape(cid) + '] ' : ''}</span>${escape(e.message)}</span>
+      <span class="msg"><span class="cid" title="${full}">${cid ? '[' + escape(cid) + '] ' : ''}</span>${escape(e.message)}</span>
     </div>`;
   }
 

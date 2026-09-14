@@ -26,10 +26,10 @@ import java.util.UUID;
  * stored snapshot when the master was unavailable: fail open on a read, fail closed on
  * a write. Today it does not, so it does not.
  *
- * <p>TODO: the real adapter. A short timeout, a circuit breaker so a slow customer
- * service cannot exhaust this one's threads, and a read-through cache — this lookup is
- * remote, happens on every request and changes rarely, which is what a cache is
- * actually for.
+ * <p>TODO: the real adapter. A short timeout and a circuit breaker, so a slow customer
+ * service cannot exhaust this one's threads. The read-through cache is already here (see
+ * the demo adapter): the lookup is remote, happens on every account opening and changes
+ * rarely, which is what a cache is actually for.
  */
 public interface CustomerDirectory {
 

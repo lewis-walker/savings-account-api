@@ -9,8 +9,10 @@ spring:
     username: ${DB_USER:savings}
     password: ${DB_PASSWORD:savings}
     hikari:
-      # Fail a request that cannot get a connection rather than letting callers
-      # queue up behind a dead database. Pairs with the circuit breaker.
+      # Fail a request that cannot get a connection rather than letting callers queue
+      # up behind a dead database. Note this bounds connection ACQUISITION only - there
+      # is no statement timeout, so a database that is alive but blocked is not covered.
+      # A circuit breaker would sit alongside this; see DECISIONS.md.
       connection-timeout: 3000
       validation-timeout: 2000
       initialization-fail-timeout: -1   # start even if Postgres is not up yet

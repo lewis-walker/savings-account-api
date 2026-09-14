@@ -55,8 +55,11 @@ class RetryPolicyTest {
     void givesUpAfterMaxRetries() {
         Flaky.failuresBeforeSuccess = 99;
 
+        // The specific type, not Throwable - assertThatThrownBy already guarantees a
+        // Throwable, so that assertion was a tautology. This pins the type the 503
+        // mapping in ApiExceptionHandler depends on, which nothing else in the suite does.
         assertThatThrownBy(() -> directory.findById(UUID.randomUUID()))
-                .isInstanceOf(Throwable.class);
+                .isInstanceOf(CustomerDirectoryUnavailableException.class);
 
         // One original attempt plus maxRetries. Unbounded retry against a dependency
         // that is genuinely down is how one outage becomes two.

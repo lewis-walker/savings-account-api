@@ -18,6 +18,13 @@ Nothing else is needed — no JDK, no Node. First build takes a few minutes.
 | Management (health, flags, log tail) | <http://localhost:8081/actuator> |
 | Ops console | <http://localhost:8082> |
 
+To start over — the Postgres volume outlives `docker compose down`, so accounts opened
+while trying things out stay opened:
+
+```bash
+docker compose down -v && docker compose up --build
+```
+
 Demo customers, all with password `demo-password`:
 `ada@example.test` · `grace@example.test` · `alan@example.test` (due diligence
 incomplete — account opening is correctly refused).
