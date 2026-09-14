@@ -8,11 +8,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * <p>Per cache, because the two hold different things: a customer changes rarely, an
  * account is read far more often than it changes. Spring Boot's own
- * {@code spring.cache.redis.time-to-live} is one value for every cache, which would make
- * tuning either of them a decision about both.
+ * {@code spring.cache.redis.time-to-live} is one value for every cache.
  *
  * <p>Each value is also the worst case for how long a stale entry survives a failed
- * eviction, which is the number to argue about when tuning it.
+ * eviction.
  *
  * @param customers the customer lookup, a remote call behind a stable answer
  * @param accounts  the account read

@@ -25,8 +25,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 /**
  * The signing key, generated at startup, so {@code docker compose up} needs no setup and
- * no private key is committed. The cost is that tokens do not survive a restart and a
- * second instance would have its own key. Production key management is in DECISIONS.md.
+ * no private key is committed. So not realistic.
  */
 @Configuration
 public class JwtKeys {

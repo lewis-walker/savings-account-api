@@ -7,7 +7,7 @@ import java.util.HexFormat;
 
 /**
  * A digest of what was asked for, so a key reused with different content can be told from
- * a retry. A digest rather than the content because this is stored in Redis.
+ * a retry.
  */
 public final class RequestFingerprint {
 

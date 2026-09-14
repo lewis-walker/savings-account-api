@@ -12,11 +12,6 @@ import java.lang.annotation.Target;
 
 /**
  * A well-formed idempotency key.
- *
- * <p>Shape, so it belongs with the other shape rules rather than in the controller body:
- * a malformed key is the same kind of failure as a nickname of the wrong length and
- * should read like one. The pattern stays on {@link IdempotencyStore}, which is what the
- * value becomes part of.
  */
 @Documented
 @Constraint(validatedBy = IdempotencyKey.Validator.class)

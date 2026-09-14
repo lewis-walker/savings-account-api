@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,18 +18,17 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>{@link AccessLogFilter} sits outside the security chain deliberately, so a request
  * security refuses is still recorded. That puts its finally block after Spring Security
  * has cleared the {@code SecurityContextHolder} ThreadLocal, and every line would read
- * {@code customer=-}. This filter runs inside the chain, where the context is still
- * populated, and puts the subject somewhere request-scoped that outlives it.
+ * {@code customer=-}.
  *
- * <p>Registered in {@code SecurityConfig} rather than annotated: its position in the
- * chain is the whole point.
+ * <p>Registered in {@code SecurityConfig}: its position in the
+ * chain is important.
  */
 public class AuthenticatedSubjectFilter extends OncePerRequestFilter {
 
     static final String SUBJECT_ATTRIBUTE = AuthenticatedSubjectFilter.class.getName() + ".subject";
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         try {
             chain.doFilter(request, response);
@@ -36,8 +37,6 @@ public class AuthenticatedSubjectFilter extends OncePerRequestFilter {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null
                     && authentication.isAuthenticated()
-                    // Anonymous authentication is still isAuthenticated(), with the
-                    // literal name "anonymousUser".
                     && !(authentication instanceof AnonymousAuthenticationToken)) {
                 request.setAttribute(SUBJECT_ATTRIBUTE, authentication.getName());
             }

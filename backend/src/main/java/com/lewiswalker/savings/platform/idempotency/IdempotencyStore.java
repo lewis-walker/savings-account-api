@@ -15,19 +15,11 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Runs an operation at most once per idempotency key, and remembers the answer.
  *
- * <p>{@link #performOnce} is the whole public surface. The primitives underneath have to be
- * called in one order - claim, then perform, then complete or release - and a caller
- * that gets it wrong performs the operation twice, which is the failure this exists to
- * stop - here, a second account against a cap of five.
- * They are package-private so the order cannot be reassembled elsewhere, and so the
- * record it keeps stays an implementation detail.
- *
  * <p>In Redis rather than Postgres: the entries are short-lived, keyed and shared across
- * instances, and the brief asks for the account details in a single table.
+ * instances.
  *
  * <p>Keys are scoped to the customer - {@code idempotency:<customerId>:<key>} - so one
- * caller's key cannot collide with, or be used to probe for, another's. A client-chosen
- * value in a shared namespace is a way to find out what other people have been doing.
+ * caller's key cannot collide with, or be used to probe for, another's.
  */
 @Component
 public class IdempotencyStore {

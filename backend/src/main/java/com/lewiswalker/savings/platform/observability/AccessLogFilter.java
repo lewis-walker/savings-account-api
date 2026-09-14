@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -14,11 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * One line per request: what was asked, what was answered, how long it took, who asked.
- * A request that succeeds logs nothing on its own, so without this the correlation id
- * has nowhere to appear.
- *
- * <p>No query string, no headers, no bodies, and the actor as an opaque subject: all
- * four are where personal data ends up.
  *
  * <p>Ordered ahead of the security chain so a request refused before it reaches a
  * controller is still recorded.
@@ -30,7 +27,7 @@ public class AccessLogFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger("access");
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         long startedAt = System.nanoTime();
         try {
@@ -48,11 +45,8 @@ public class AccessLogFilter extends OncePerRequestFilter {
     }
 
     /**
-     * The token's subject, or a dash. Never a name, never an email.
-     *
-     * <p>Read from a request attribute rather than from {@code SecurityContextHolder},
-     * which by this point has been cleared — see {@link AuthenticatedSubjectFilter} for
-     * why, because the empty-looking alternative is a silent bug rather than a loud one.
+     * The token's subject: the sub claim, which JwtKeys refuses unless it is a customer id.
+     * So no PII
      */
     private static String currentSubject(HttpServletRequest request) {
         Object subject = request.getAttribute(AuthenticatedSubjectFilter.SUBJECT_ATTRIBUTE);

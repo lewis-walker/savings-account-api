@@ -7,12 +7,6 @@ import java.util.UUID;
 /**
  * The people who exist in the demo.
  *
- * <p>Deliberately not a database table. The brief asks for a single table, and more to
- * the point a bank account API does not own customer credentials — identity lives in
- * the enterprise identity provider (Entra, Okta, Ping, ForgeRock) and this service is
- * a resource server that validates tokens it did not issue. An in-memory store is not
- * a shortcut here; it is the honest shape, with the real thing named.
- *
  * <p>These same ids seed the customer directory, so a token's subject always resolves
  * to a customer the directory has heard of.
  */

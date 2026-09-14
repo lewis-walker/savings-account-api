@@ -11,9 +11,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,12 +22,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Issues access tokens for the demo, and publishes the public key.
+ * Gives the front end something to sign in against, and publishes the public key.
  *
- * <p><b>Would not exist in production.</b> It is the OAuth 2.0 password grant, which
- * OAuth 2.1 removes because handing a password to the client application is the thing
- * federated identity exists to stop. It is here so the demo runs without an identity
- * provider beside it, and it is the first thing that would be deleted against a real one.
+ * <p><b>Scaffolding.</b> In production the token arrives from the enterprise identity
+ * provider by way of the API gateway, and this service only ever validates one - see
+ * {@link SecurityConfig}, which is the half that survives. The password here is a fixed
+ * string shared by every demo identity, not a credential: it exists so the sign-in
+ * screen has a form to fill in and so the endpoint is not an open token dispenser.
  */
 @RestController
 public class TokenController {
@@ -43,31 +45,27 @@ public class TokenController {
     private final JwtEncoder jwtEncoder;
     private final JwtKeys jwtKeys;
     private final SecurityProperties properties;
-    private final PasswordEncoder passwordEncoder;
-    private final String demoPasswordHash;
+    private final byte[] demoPassword;
 
     // @Value rather than a properties record, unlike everything else that is configured:
     // this setting leaves with the class.
     public TokenController(JwtEncoder jwtEncoder, JwtKeys jwtKeys, SecurityProperties properties,
-                           PasswordEncoder passwordEncoder,
                            @Value("${security.demo.password:demo-password}") String demoPassword) {
         this.jwtEncoder = jwtEncoder;
         this.jwtKeys = jwtKeys;
         this.properties = properties;
-        this.passwordEncoder = passwordEncoder;
-        // Hashed rather than compared in plain text: the demo should not model
-        // something nobody should copy.
-        this.demoPasswordHash = passwordEncoder.encode(demoPassword);
+        this.demoPassword = demoPassword.getBytes(StandardCharsets.UTF_8);
     }
 
     @PostMapping("/auth/token")
     public TokenResponse issue(@jakarta.validation.Valid @RequestBody TokenRequest request) {
         Optional<DemoIdentities.Identity> identity = DemoIdentities.byEmail(request.email());
 
-        // Hash even when the email is unknown. Returning early would make an unknown
-        // email measurably faster than a wrong password, which turns this endpoint into
-        // a way to find out who banks here.
-        boolean passwordMatches = passwordEncoder.matches(request.password(), demoPasswordHash);
+        // Compared for an unknown email too, and in constant time. Returning early
+        // would make an unknown email measurably faster than a wrong password, which
+        // turns this endpoint into a way to find out who banks here.
+        boolean passwordMatches = MessageDigest.isEqual(
+                request.password().getBytes(StandardCharsets.UTF_8), demoPassword);
         if (identity.isEmpty() || !passwordMatches) {
             // One message for both failures, same reason.
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid credentials");
