@@ -121,8 +121,8 @@ and `auth` are features, `ui` is what neither owns. It ships no CSS of its own.
 ## Tests
 
 ```bash
-cd backend && ./gradlew test     # against real Postgres and Redis via Testcontainers
-cd frontend && npm test          # covers the optimistic update
+cd backend && ./gradlew test      # against real Postgres and Redis via Testcontainers
+cd frontend && npm ci && npm test # covers the optimistic update
 ```
 
 What each test is for, and why it is written the way it is:
