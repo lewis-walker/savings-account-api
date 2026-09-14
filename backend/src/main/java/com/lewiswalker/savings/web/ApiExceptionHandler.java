@@ -3,6 +3,7 @@ package com.lewiswalker.savings.web;
 import com.lewiswalker.savings.account.AccountCapReachedException;
 import com.lewiswalker.savings.account.AccountNotFoundException;
 import com.lewiswalker.savings.account.AccountNumberAllocationException;
+import com.lewiswalker.savings.account.ConstraintNames;
 import com.lewiswalker.savings.customer.CustomerDirectoryUnavailableException;
 import com.lewiswalker.savings.customer.CustomerNotVerifiedException;
 import com.lewiswalker.savings.customer.UnknownCustomerException;
@@ -16,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -145,6 +147,34 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "This service is temporarily unable to complete your request. Please try again.");
         problem.setProperty("retryable", true);
         return problem;
+    }
+
+    /**
+     * A constraint fired that nothing upstream expected.
+     *
+     * <p>Separate from the outage case for two reasons. It is not an outage, so reporting
+     * it as a retryable 503 tells the caller to repeat a request that will fail
+     * identically every time.
+     *
+     * <p>And the exception must not be logged. A Postgres constraint violation carries
+     * {@code Detail: Failing row contains (...)} — every column of the row, customer name
+     * and nickname included — so handing it to a logger puts customer data into the log,
+     * into the in-memory tail, and onto the operations console, past every other control
+     * in this service. Only the constraint name is recorded here. The full detail is
+     * already in the database server's own log, which is where it belongs.
+     *
+     * <p>Reaching this handler is a defect: validation should have refused the request at
+     * the edge. It is reported as a 500 rather than dressed up as something the caller did
+     * wrong, and logged at error so that somebody notices.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail constraintViolated(DataIntegrityViolationException e) {
+        String constraint = ConstraintNames.of(e);
+        log.error("a database constraint was violated that validation should have prevented: {}",
+                constraint == null ? "unknown constraint" : constraint);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "request-could-not-be-completed",
+                "Request could not be completed",
+                "This request could not be completed. Please contact us if it continues.");
     }
 
     @ExceptionHandler({DataAccessException.class, TransactionException.class})

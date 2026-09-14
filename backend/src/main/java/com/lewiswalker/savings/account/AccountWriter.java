@@ -2,7 +2,6 @@ package com.lewiswalker.savings.account;
 
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -83,7 +82,7 @@ public class AccountWriter {
             events.publishEvent(new AccountOpened(AccountView.of(saved)));
             return saved;
         } catch (DataIntegrityViolationException e) {
-            String constraint = constraintNameOf(e);
+            String constraint = ConstraintNames.of(e);
             if (CAP_CONSTRAINT.equals(constraint)) {
                 // Lost the race for the last slot. Permanent — the customer is full.
                 throw new AccountCapReachedException(customerId, cap);
@@ -96,19 +95,4 @@ public class AccountWriter {
         }
     }
 
-    /**
-     * Which constraint actually fired.
-     *
-     * <p>Treating every {@code DataIntegrityViolationException} the same is how a
-     * permanent failure ends up being retried until the retry budget runs out, and the
-     * caller gets a timeout instead of "you already have five accounts".
-     */
-    static String constraintNameOf(DataIntegrityViolationException e) {
-        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException violation) {
-                return violation.getConstraintName();
-            }
-        }
-        return null;
-    }
 }

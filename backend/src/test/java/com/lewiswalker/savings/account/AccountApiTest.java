@@ -81,6 +81,28 @@ class AccountApiTest {
     }
 
     @Test
+    @DisplayName("a nickname of three emoji is a 400, not a 503")
+    void astralCharactersAreCountedAsCharacters() throws Exception {
+        // Three characters, six UTF-16 code units. @Size would have counted six, passed
+        // it, and let the database reject it - arriving as a constraint violation whose
+        // message carries the whole failing row, customer name included.
+        mockMvc.perform(openAccount(ADA, "{\"nickname\":\"\uD83D\uDC4D\uD83D\uDC4D\uD83D\uDC4D\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("nickname"));
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("thirty emoji are accepted; thirty-one are not")
+    void theLimitIsCharactersNotCodeUnits() throws Exception {
+        String thirty = "\uD83D\uDC4D".repeat(30);
+        mockMvc.perform(openAccount(ADA, "{\"nickname\":\"" + thirty + "\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(openAccount(ADA, "{\"nickname\":\"" + thirty + "\uD83D\uDC4D\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("an offensive nickname is a 422 that does not repeat it back")
     void offensiveNicknameIsRejected() throws Exception {
         String body = mockMvc.perform(openAccount(ADA, "{\"nickname\":\"my badword account\"}"))
