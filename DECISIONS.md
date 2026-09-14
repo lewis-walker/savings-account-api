@@ -190,10 +190,3 @@ The choice of base in a regulated environment is a patching question rather than
 
 **The container does not run as root,** and the JVM is told the cgroup memory limit (`MaxRAMPercentage`) and to die rather than limp on `OutOfMemoryError`.
 
-## Production considerations
-
-- **Account retention:** No delete endpoint is provided. Accounts should be closed and retained according to statutory requirements.
-- **Account lifecycle:** Pending, active, dormant, frozen, and closed states are not modelled. New Zealand dormancy requirements would also need to be addressed.
-- **Account-number allocation:** Production numbers must come from the core banking system using a range registered with Payments NZ.
-- **Customer due diligence:** Account opening requires KYC checks, screening, and an approval record.
-- **Operational controls:** Customer-visible changes, including feature-flag changes, require dual approval. The demo’s management endpoints are unauthenticated and must be secured before production use. This covers the feature-flag endpoint and the log tail; the log tail is the more sensitive of the two, because it streams application log lines.
