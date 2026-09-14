@@ -56,9 +56,9 @@ CSRF protection is disabled because authentication does not use cookies. This de
 
 Retries apply only to transient unavailability failures at the two integration ports. Permanent failures are returned immediately.
 
-Database operations have a three-second timeout and are not retried; retries would extend request latency while occupying a thread. Sustained dependency outages require a circuit breaker. The account-slot contention loop retries immediately because another request winning a slot does not indicate dependency unavailability.
+Connection acquisition has a three-second timeout, and database operations are not retried; retries would extend request latency while occupying a thread. There is no statement timeout, so a database that is reachable but blocked is not bounded by that. Sustained dependency outages require a circuit breaker. The account-slot contention loop retries immediately because another request winning a slot does not indicate dependency unavailability.
 
-Account-allocation retries reuse the client reference. This prevents duplicate allocation when an earlier request succeeds but its response is lost.
+The allocator port carries a client reference so that a remote adapter can be retried safely when an earlier request succeeded and its response was lost. The local adapter ignores it, because a sequence draw inside the caller's transaction leaves no partial state to reconcile.
 
 **Account opening is idempotent.** `POST /accounts` honours an `Idempotency-Key` header. The key is claimed with a single Redis `SET NX`, so two requests carrying the same key cannot both proceed; a key whose request has completed replays the original `201` rather than opening a second account. A key reused with a different request body returns `422` rather than the earlier result, because a retry repeats its request and anything else is a client defect.
 
