@@ -1,5 +1,5 @@
 import { MoonIcon, SunIcon } from '@radix-ui/react-icons';
-import { Box, Button, Container, Flex, IconButton, Text, Theme, Tooltip } from '@radix-ui/themes';
+import { Box, Button, Flex, IconButton, Text, Theme, Tooltip } from '@radix-ui/themes';
 import { useDispatch, useSelector } from 'react-redux';
 import { api } from './api/api';
 import Accounts from './accounts/Accounts';
@@ -15,8 +15,7 @@ export default function App() {
   return (
     // Green reads as money without being a brand nobody has seen.
     <Theme appearance={appearance} accentColor="green" grayColor="slate" radius="medium">
-      {/* A tinted page, so the white panels read as panels. */}
-      <Box minHeight="100vh" style={{ background: 'var(--gray-2)' }}>
+      <Flex direction="column" minHeight="100vh">
         <Box px="5" py="3" style={{ background: 'var(--color-panel-solid)', borderBottom: '1px solid var(--gray-a5)' }}>
           <Flex align="center" gap="3">
             <Box width="22px" height="22px" style={{ background: 'var(--accent-9)', borderRadius: 'var(--radius-2)' }} />
@@ -37,10 +36,12 @@ export default function App() {
             </Flex>
           </Flex>
         </Box>
-        <Container size="2" px="5" py="6">
+        {/* Grows to fill what the masthead leaves, so a child can pin itself to the
+            foot of the page with mt="auto". */}
+        <Flex direction="column" flexGrow="1" width="100%" maxWidth="704px" mx="auto" px="5" py="6">
           {signedIn ? <Accounts /> : <SignIn />}
-        </Container>
-      </Box>
+        </Flex>
+      </Flex>
     </Theme>
   );
 }

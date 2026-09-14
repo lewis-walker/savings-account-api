@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Card, Flex, Heading, Reset, Text, TextField } from '@radix-ui/themes';
+import { Badge, Box, Button, Flex, Heading, Reset, Text, TextField } from '@radix-ui/themes';
 import { asProblem, useListAccountsQuery } from '../api/api';
 import Problem from '../ui/Problem';
 import AccountRow from './AccountRow';
@@ -14,8 +14,8 @@ export default function Accounts() {
   const full = confirmed >= MAXIMUM_ACCOUNTS;
 
   return (
-    <Flex direction="column" gap="4">
-      <Card size="3">
+    <Flex direction="column" gap="7" flexGrow="1">
+      <Box>
         <Flex align="baseline" gap="3" mb="3">
           <Heading size="4">Your savings accounts</Heading>
           {/* "1 of 5" alone reads as paging through five accounts. It is a limit. */}
@@ -43,16 +43,14 @@ export default function Accounts() {
             </ul>
           </Reset>
         </Flex>
-      </Card>
+      </Box>
 
-      <Card size="3">
-        <Heading size="3" mb="3">Open another account</Heading>
-        {full ? (
-          <Text as="p" color="gray">
-            You are holding the maximum of {MAXIMUM_ACCOUNTS} savings accounts. The
-            server enforces this too — this message is a courtesy, not the rule.
-          </Text>
-        ) : (
+      {/* Hidden at the limit rather than explained: the badge above already says
+          five of five, and a form that cannot be submitted is furniture. mt="auto"
+          puts it at the foot of the page rather than under the last row. */}
+      {!full && (
+        <Box mt="auto">
+          <Heading size="3" mb="3">Open another account</Heading>
           <form onSubmit={submit}>
             <Flex direction="column" gap="3">
               <label>
@@ -71,17 +69,17 @@ export default function Accounts() {
               </Button>
             </Flex>
           </form>
-        )}
 
-        {failure && (
-          <Box mt="4">
-            <Problem problem={asProblem(failure.error)} />
-            {asProblem(failure.error).retryable && (
-              <Button variant="soft" mt="3" onClick={retry}>Try again</Button>
-            )}
-          </Box>
-        )}
-      </Card>
+          {failure && (
+            <Box mt="4">
+              <Problem problem={asProblem(failure.error)} />
+              {asProblem(failure.error).retryable && (
+                <Button variant="soft" mt="3" onClick={retry}>Try again</Button>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
     </Flex>
   );
 }

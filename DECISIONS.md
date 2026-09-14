@@ -106,6 +106,8 @@ Each flag records its purpose and expected lifetime. Temporary flags should be r
 
 **A row is a union, not a bag of optional fields.** `AccountRow` is `PendingAccountRow | OpenedAccountRow`: a row this client invented, which has a nickname and nothing else, or one the server confirmed, which has every field the API returns. The earlier `Partial<Account>` said all of them might be missing at any time, which was never true and left the component guarding against cases that cannot happen. Narrowing on `pending` now gives the compiler the same knowledge a reader has.
 
+**The form is hidden at the limit rather than disabled.** The badge beside the heading already reads "5 of 5 allowed" in red; a form that cannot be submitted is furniture. The server still refuses a sixth account regardless of what the screen shows - `AccountCapConcurrencyTest` is the proof - so nothing here is an enforcement.
+
 **Radix Themes for the interface.** Accessible components and a token system, rather than a stylesheet of hand-written classes that has to be argued about. The application ships no CSS of its own at all. The account list stays a real `<ul>`, so a screen reader announces it as a list with a count rather than as unrelated boxes, and Radix's own `Reset` takes the bullets and padding off it. Components are grouped by feature - `accounts`, `auth`, `ui` for the two pieces both use - so the folder says what the application does rather than what its files are.
 
 
