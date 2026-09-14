@@ -79,6 +79,19 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # The customer-facing app. nginx serves the built SPA and proxies /api to the
+  # backend, so the browser sees a single origin and this project contains no CORS
+  # configuration at all.
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
   # The operations console: feature flags and a live log tail.
   #
   # A separate app on a separate port, talking to the backend's management port,

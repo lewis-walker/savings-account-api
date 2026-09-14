@@ -21,13 +21,26 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * security chain — can log before the id exists. A log line without a correlation id
  * is the one you need during an incident.
  *
- * <h2>Why the inbound header is not trusted</h2>
+ * <h2>Where the id comes from</h2>
  *
- * A caller may supply its own id so a trace spans several services. That header is
- * attacker-controlled input on its way into a log file, which is CWE-117 (log
- * injection): a carriage return inside it lets a caller forge whole log entries. Where
- * logs are evidence — and in a bank they are — a forged entry is worse than a missing
- * one.
+ * <p>Normally from the gateway. The edge sees every request, including those it rejects
+ * before they reach this service, so only an id issued there can join the whole picture
+ * together — an id minted here would cover just the subset that got through. In this
+ * stack nginx sets it from its own {@code $request_id}, and a browser is an untrusted
+ * client whose header nginx overwrites.
+ *
+ * <p>One is still generated here when the header is absent, so the service is never
+ * without a correlation id: called directly in development, reached by something that
+ * bypassed the gateway, or behind a gateway someone forgot to configure. A log line
+ * with no id is the one you will want.
+ *
+ * <h2>Why the inbound header is still not trusted</h2>
+ *
+ * "It comes from the gateway" is an assumption about network topology, and topology
+ * changes. The header is attacker-controlled input on its way into a log file, which is
+ * CWE-117 (log injection): a carriage return inside it lets a caller forge whole log
+ * entries. Where logs are evidence — and in a bank they are — a forged entry is worse
+ * than a missing one.
  *
  * <p>So the header is not escaped or trimmed, it is <em>validated and replaced</em>.
  * Anything that is not a short run of alphanumerics and hyphens is discarded and we

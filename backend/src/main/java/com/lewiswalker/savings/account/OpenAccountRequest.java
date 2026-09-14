@@ -24,7 +24,10 @@ public record OpenAccountRequest(
          * exactly the "optional, 5 to 30 characters" the brief asks for. A @NotBlank
          * here would quietly make it mandatory.
          */
+        // The message does not name the field. The problem document carries the field
+        // separately, so a message that repeats it renders as "nickname nickname must
+        // be...". Messages describe the rule; the envelope says what it applies to.
         @Size(min = 5, max = 30,
-                message = "nickname must be between 5 and 30 characters")
+                message = "must be between 5 and 30 characters")
         String nickname) {
 }
