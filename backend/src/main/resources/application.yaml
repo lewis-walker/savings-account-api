@@ -100,6 +100,14 @@ logging:
     # up or down on its own, and so it is obvious in a log aggregator.
     access: INFO
 
+    # Who did what and what the answer was. Named separately because audit records
+    # have their own audience, their own retention - five years for AML/CFT, seven
+    # for tax - and in a real deployment their own appender writing somewhere
+    # durable. Keeping them distinguishable is what makes that routing a
+    # configuration change rather than a rewrite; and an engineer turning
+    # application logging down during an incident cannot switch this off by accident.
+    audit: INFO
+
     # Pinned, and this is a control rather than tidiness.
     #
     # Hibernate's EntityPrinter reflects over every field of an entity and prints it

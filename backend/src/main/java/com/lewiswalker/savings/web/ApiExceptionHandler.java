@@ -89,10 +89,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(UnknownCustomerException.class)
     ProblemDetail unknownCustomer(UnknownCustomerException e) {
-        // A validly signed token whose subject is not a customer. Configuration or
-        // lifecycle, not user error, so it is logged at warn - nobody will notice this
-        // from the response alone.
-        log.warn("token subject does not resolve to a customer", e);
+        // Not logged here. AccountService already recorded it at the point the
+        // decision was made, and logging it again on the way out would produce two
+        // records of one event - which is how counts stop matching.
         return problem(HttpStatus.FORBIDDEN, "customer-not-verified",
                 "Account cannot be opened",
                 "This customer is not currently able to open accounts. Please contact us.");

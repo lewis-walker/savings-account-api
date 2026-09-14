@@ -1,5 +1,6 @@
 package com.lewiswalker.savings.account;
 
+import com.lewiswalker.savings.audit.AuditLog;
 import com.lewiswalker.savings.cache.CacheConfig;
 import com.lewiswalker.savings.customer.Customer;
 import com.lewiswalker.savings.customer.CustomerDirectory;
@@ -34,14 +35,16 @@ public class AccountService {
     private final AccountRepository repository;
     private final OffensiveNicknameChecker nicknameChecker;
     private final CustomerDirectory customers;
+    private final AuditLog auditLog;
 
     public AccountService(AccountWriter writer, AccountRepository repository,
                           OffensiveNicknameChecker nicknameChecker,
-                          CustomerDirectory customers) {
+                          CustomerDirectory customers, AuditLog auditLog) {
         this.writer = writer;
         this.repository = repository;
         this.nicknameChecker = nicknameChecker;
         this.customers = customers;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -64,17 +67,37 @@ public class AccountService {
         // the request. Under AML/CFT an account is opened for a customer whose identity
         // has already been established; a name asserted by the caller would be an
         // unverified claim written into a banking record.
-        Customer customer = customers.findById(customerId)
-                .orElseThrow(() -> new UnknownCustomerException(customerId));
+        Customer customer = customers.findById(customerId).orElseThrow(() -> {
+            // A validly signed token whose subject is not a customer: a configuration
+            // or lifecycle problem rather than a customer doing anything wrong, so it
+            // is audited as a refusal *and* logged for engineers, who are the ones who
+            // need to go and fix it.
+            auditLog.accountRefused(customerId, "unknown-customer");
+            log.warn("token subject {} does not resolve to a customer", customerId);
+            return new UnknownCustomerException(customerId);
+        });
+
         if (!customer.mayOpenAccounts()) {
+            // Audited because it is exactly the sort of thing somebody asks about
+            // later. Under AML/CFT an attempt to open an account by a customer whose
+            // due diligence is not complete is a reportable event, and a pattern of
+            // them is a signal in its own right - which is only visible if each one
+            // left a record.
+            auditLog.accountRefused(customerId,
+                    "due-diligence-" + customer.dueDiligence().name().toLowerCase());
             throw new CustomerNotVerifiedException(customer.dueDiligence());
         }
 
         SequenceContendedException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                return AccountView.of(writer.attemptOpen(customerId, customer.fullName(),
-                        nickname, ACCOUNTS_PER_CUSTOMER));
+                AccountView opened = AccountView.of(writer.attemptOpen(customerId,
+                        customer.fullName(), nickname, ACCOUNTS_PER_CUSTOMER));
+                auditLog.accountOpened(customerId, opened.id(), opened.sequenceNo());
+                return opened;
+            } catch (AccountCapReachedException e) {
+                auditLog.accountRefused(customerId, "account-limit-reached");
+                throw e;
             } catch (SequenceContendedException e) {
                 last = e;
                 log.debug("sequence contended for customer {}, attempt {} of {}",
@@ -85,6 +108,7 @@ public class AccountService {
         // constraint. Concurrency this heavy on one customer is worth knowing about.
         log.warn("gave up opening an account for customer {} after {} contended attempts",
                 customerId, MAX_ATTEMPTS);
+        auditLog.accountRefused(customerId, "account-limit-reached");
         throw new AccountCapReachedException(customerId, ACCOUNTS_PER_CUSTOMER);
     }
 
