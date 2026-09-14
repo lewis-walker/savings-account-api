@@ -91,7 +91,7 @@ public class AccountService {
                 cacheWarmer.warm(opened);
                 return opened;
             } catch (AccountCapReachedException e) {
-                throw customerIsFull(customerId);
+                throw accountCapReached(customerId);
             } catch (SequenceContendedException e) {
                 log.debug("sequence contended for customer {}, attempt {} of {}",
                         customerId, attempt, MAX_ATTEMPTS);
@@ -99,10 +99,10 @@ public class AccountService {
         }
         log.warn("gave up opening an account for customer {} after {} contended attempts",
                 customerId, MAX_ATTEMPTS);
-        throw customerIsFull(customerId);
+        throw accountCapReached(customerId);
     }
 
-    private AccountCapReachedException customerIsFull(UUID customerId) {
+    private AccountCapReachedException accountCapReached(UUID customerId) {
         auditLog.accountRefused(customerId, "account-limit-reached");
         return new AccountCapReachedException(customerId, ACCOUNTS_PER_CUSTOMER);
     }

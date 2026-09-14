@@ -53,10 +53,10 @@ public class AccountController {
             @IdempotencyKey String idempotencyKey,
             @Valid @RequestBody OpenAccountRequest request) {
         UUID customerId = customerId(caller);
-        return created(idempotency.once(customerId, idempotencyKey,
+        return created(idempotency.performOnce(customerId, idempotencyKey,
                 RequestFingerprint.of(customerId.toString(), request.nickname()),
                 () -> accounts.open(customerId, request.nickname()).id(),
-                id -> ownedBy(customerId, id)));
+                id -> requireOwnedAccount(customerId, id)));
     }
 
     /**
@@ -68,7 +68,7 @@ public class AccountController {
      * or from the write that had just created it, so a mismatch is an invariant failing:
      * recorded, and refused rather than answered.
      */
-    private AccountView ownedBy(UUID customerId, UUID accountId) {
+    private AccountView requireOwnedAccount(UUID customerId, UUID accountId) {
         AccountView account = accounts.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
         if (!account.customerId().equals(customerId)) {

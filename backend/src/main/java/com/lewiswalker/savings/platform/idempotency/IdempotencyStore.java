@@ -15,7 +15,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Runs an operation at most once per idempotency key, and remembers the answer.
  *
- * <p>{@link #once} is the whole public surface. The primitives underneath have to be
+ * <p>{@link #performOnce} is the whole public surface. The primitives underneath have to be
  * called in one order - claim, then perform, then complete or release - and a caller
  * that gets it wrong performs the operation twice, which is the failure this exists to
  * stop - here, a second account against a cap of five.
@@ -62,15 +62,15 @@ public class IdempotencyStore {
      * @param perform does the work and returns the id of what it created
      * @param recall  turns that id back into the answer, and owns what absence means
      */
-    public <T> T once(UUID customerId, String key, String fingerprint,
-                      Supplier<UUID> perform, Function<UUID, T> recall) {
+    public <T> T performOnce(UUID customerId, String key, String fingerprint,
+                             Supplier<UUID> perform, Function<UUID, T> recall) {
         if (key == null) {
             return recall.apply(perform.get());
         }
 
         Optional<IdempotencyRecord> existing = claim(customerId, key, fingerprint);
         if (existing.isPresent()) {
-            return recall.apply(replayable(customerId, existing.get(), fingerprint, key));
+            return recall.apply(previousResultId(customerId, existing.get(), fingerprint, key));
         }
 
         UUID id;
@@ -86,8 +86,8 @@ public class IdempotencyStore {
     }
 
     /** The id an earlier request created, once this one is established as the same request. */
-    private static UUID replayable(UUID customerId, IdempotencyRecord record,
-                                   String fingerprint, String key) {
+    private static UUID previousResultId(UUID customerId, IdempotencyRecord record,
+                                         String fingerprint, String key) {
         if (!record.matches(fingerprint)) {
             throw new IdempotencyExceptions.KeyReused(key);
         }

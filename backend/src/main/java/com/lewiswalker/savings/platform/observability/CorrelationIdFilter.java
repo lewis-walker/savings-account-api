@@ -36,7 +36,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        String correlationId = accept(request.getHeader(HEADER));
+        String correlationId = sanitised(request.getHeader(HEADER));
         MDC.put(MDC_KEY, correlationId);
         // Set before the chain runs, so the caller still gets the id on an error response.
         response.setHeader(HEADER, correlationId);
@@ -49,7 +49,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         }
     }
 
-    static String accept(String supplied) {
+    static String sanitised(String supplied) {
         return supplied != null && ACCEPTABLE.matcher(supplied).matches()
                 ? supplied
                 : UUID.randomUUID().toString();
