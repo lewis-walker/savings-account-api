@@ -17,11 +17,11 @@ import org.springframework.stereotype.Component;
 /**
  * Keeps the last few hundred log lines in memory so they can be tailed over HTTP.
  *
- * <p><b>Why this is safe to expose here and would not be in most services.</b> Streaming
- * application logs to a browser is normally a bad idea, because application logs are
- * full of customer data. These are not, and that is not a hope — {@code LogHygieneTest}
- * asserts it, including against Hibernate's own entity printing. The log hygiene work
- * is what makes this feature possible rather than reckless.
+ * <p>Streaming application logs to a browser is normally a bad idea, because application
+ * logs tend to contain customer data. These are written not to: {@code LogHygieneTest}
+ * covers the application's own logging and Hibernate's entity printing, and
+ * {@code ApiExceptionHandlerTest} covers the constraint-violation path, where a failing
+ * row would otherwise reach a logger. That is what makes a live tail viewable at all.
  *
  * <p>It is still an operational surface, so it is served on the management port beside
  * the feature flags and not on the port customers reach.
@@ -57,9 +57,14 @@ public class LogTail {
     /**
      * Everything after the given sequence number.
      *
-     * <p>A sequence rather than a timestamp, so a caller polling repeatedly gets each
-     * line exactly once. Timestamps collide at millisecond resolution under load, and a
-     * tail that duplicates or skips lines is worse than no tail.
+     * <p>A sequence rather than a timestamp, because timestamps collide at millisecond
+     * resolution and a tail that duplicates lines is worse than one that drops them.
+     *
+     * <p>At most once, not exactly once: the endpoint reads the entries and then reads the
+     * cursor, so a line recorded between those two calls falls inside the cursor without
+     * having been returned. Acceptable for a live tail somebody is watching, and not
+     * acceptable for anything that needs every line — which is what the log aggregator is
+     * for.
      */
     public List<Entry> since(long after) {
         synchronized (entries) {

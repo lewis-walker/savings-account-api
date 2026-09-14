@@ -1,6 +1,6 @@
 package com.lewiswalker.savings.account;
 
-import jakarta.validation.constraints.Size;
+
 
 /**
  * The body of a request to open an account.
@@ -20,14 +20,16 @@ import jakarta.validation.constraints.Size;
 public record OpenAccountRequest(
 
         /*
-         * Optional, but constrained when present: @Size passes null through, which is
-         * exactly the "optional, 5 to 30 characters" the brief asks for. A @NotBlank
-         * here would quietly make it mandatory.
+         * Optional, but constrained when present: a null passes, which is exactly the
+         * "optional, 5 to 30 characters" the brief asks for. A @NotBlank here would
+         * quietly make it mandatory.
+         *
+         * Not @Size, which counts UTF-16 code units where the database counts
+         * characters - see NicknameLength. The message does not name the field, because
+         * the problem document carries the field separately and a message that repeats
+         * it renders as "nickname nickname must be...".
          */
-        // The message does not name the field. The problem document carries the field
-        // separately, so a message that repeats it renders as "nickname nickname must
-        // be...". Messages describe the rule; the envelope says what it applies to.
-        @Size(min = 5, max = 30,
+        @NicknameLength(min = 5, max = 30,
                 message = "must be between 5 and 30 characters")
         String nickname) {
 }

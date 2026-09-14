@@ -9,8 +9,10 @@ spring:
     username: ${DB_USER:savings}
     password: ${DB_PASSWORD:savings}
     hikari:
-      # Fail a request that cannot get a connection rather than letting callers
-      # queue up behind a dead database. Pairs with the circuit breaker.
+      # Fail a request that cannot get a connection rather than letting callers queue
+      # up behind a dead database. Note this bounds connection ACQUISITION only - there
+      # is no statement timeout, so a database that is alive but blocked is not covered.
+      # A circuit breaker would sit alongside this; see DECISIONS.md.
       connection-timeout: 3000
       validation-timeout: 2000
       initialization-fail-timeout: -1   # start even if Postgres is not up yet
@@ -52,6 +54,11 @@ spring:
       port: ${REDIS_PORT:6379}
       timeout: 500ms          # the cache must never be the slow part of a request
       connect-timeout: 500ms
+
+idempotency:
+  # How long a key is remembered. Long enough to cover any realistic retry, short enough
+  # that the store does not accumulate. Stripe uses 24 hours for the same reason.
+  retention: ${IDEMPOTENCY_RETENTION:24h}
 
 features:
   # Stand-in for LaunchDarkly. A real deployment leaves this empty and takes values

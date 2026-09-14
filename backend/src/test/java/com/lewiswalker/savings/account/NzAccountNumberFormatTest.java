@@ -24,23 +24,24 @@ class NzAccountNumberFormatTest {
     }
 
     @ParameterizedTest
-    @DisplayName("rejects that same number with any single digit altered")
+    @DisplayName("altering a weighted digit invalidates the number")
     @CsvSource({
             "01, 0902, 00068388, 000",
             "01, 0902, 00068379, 000",
-            "01, 0902, 00068389, 001",   // suffix is unweighted, so this must still fail
             "01, 0903, 00068389, 000",
     })
-    void rejectsPerturbations(String bank, String branch, String base, String suffix) {
-        boolean valid = format.isValid(bank, branch, base, suffix);
-        if ("001".equals(suffix)) {
-            // Documenting a real property of the scheme rather than asserting a wrong
-            // one: the suffix carries weight zero, so altering it cannot invalidate a
-            // number. A check digit protects the base, not the product code.
-            assertThat(valid).isTrue();
-        } else {
-            assertThat(valid).isFalse();
-        }
+    void rejectsAlteredWeightedDigits(String bank, String branch, String base, String suffix) {
+        assertThat(format.isValid(bank, branch, base, suffix)).isFalse();
+    }
+
+    @Test
+    @DisplayName("altering the suffix does not, because the suffix is unweighted")
+    void suffixIsNotCoveredByTheCheckDigit() {
+        // A property of the scheme rather than a defect: the check digit protects the
+        // account base, not the product code. Asserted so that nobody later "fixes" the
+        // weight table to make a suffix change fail.
+        assertThat(format.isValid("01", "0902", "00068389", "000")).isTrue();
+        assertThat(format.isValid("01", "0902", "00068389", "001")).isTrue();
     }
 
     @Test
@@ -91,6 +92,9 @@ class NzAccountNumberFormatTest {
     @Test
     @DisplayName("the branch range refuses rather than wrapping when exhausted")
     void exhaustionIsLoud() {
+        // Refusing matters more than the type: silently wrapping would reissue numbers
+        // that are already in use, and the unique constraint would then reject perfectly
+        // ordinary requests for reasons nobody could explain.
         assertThatThrownBy(() -> format.format(99_000))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("exhausted");

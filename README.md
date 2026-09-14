@@ -18,6 +18,13 @@ Nothing else is needed — no JDK, no Node. First build takes a few minutes.
 | Management (health, flags, log tail) | <http://localhost:8081/actuator> |
 | Ops console | <http://localhost:8082> |
 
+To start over — the Postgres volume outlives `docker compose down`, so accounts opened
+while trying things out stay opened:
+
+```bash
+docker compose down -v && docker compose up --build
+```
+
 Demo customers, all with password `demo-password`:
 `ada@example.test` · `grace@example.test` · `alan@example.test` (due diligence
 incomplete — account opening is correctly refused).
@@ -30,9 +37,10 @@ incomplete — account opening is correctly refused).
 |---|---|
 | Open five accounts | the sixth is refused with `409` |
 | Nickname `my badword account` | `422`, and the nickname is not echoed back |
-| Sign in as Alan | `403`; the reason is audited but not disclosed to the caller |
+| Open an account as Alan | `403`; signing in succeeds, opening is refused, and the reason is audited but not disclosed to the caller |
 | `docker compose stop postgres` | `503` in 3s with a reference, not a hang; recovers on its own |
 | `docker compose stop redis` | nothing breaks — the cache is never on the correctness path |
+| Send the same request twice with an `Idempotency-Key` | the second replays the original account; no second account is opened |
 | Toggle `redis-cache` in the ops console | takes effect on the next request, no restart |
 
 Every error carries a **reference**. Search for it in the ops console log and you will
@@ -91,6 +99,9 @@ a demo adapter and a note on what the real one needs.
 cd backend && ./gradlew test     # 75, against real Postgres and Redis via Testcontainers
 cd frontend && npm test          # 3, covering the optimistic update
 ```
+
+What each test is for, and why it is written the way it is:
+[DECISIONS.md](DECISIONS.md#testing).
 
 ## Why things are the way they are
 

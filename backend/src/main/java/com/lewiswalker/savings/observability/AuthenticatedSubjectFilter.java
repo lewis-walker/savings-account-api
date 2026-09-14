@@ -27,8 +27,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>So this filter runs inside the chain, where the context is still populated, and
  * puts the subject somewhere request-scoped that outlives it.
  *
- * <p>Registered in {@code SecurityConfig} rather than annotated, because where it sits
- * in the chain is the entire point of it.
+ * <p>Registered in {@code SecurityConfig} rather than annotated, because its position in
+ * the chain is what makes it work.
  */
 public class AuthenticatedSubjectFilter extends OncePerRequestFilter {
 

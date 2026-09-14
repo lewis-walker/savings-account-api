@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>Numbers satisfy the standard NZ modulus-11 check. The weights below are the
  * default factor used by most banks for an account base under 990000, verified
- * against a published valid number (01-0902-00068389-000, whose weighted sum is
+ * against a published valid number (01-0902-0068389-000, whose weighted sum is
  * 176, and 176 mod 11 is 0). Bank 99 is deliberately not a registered New Zealand
  * bank ID: the numbers are structurally valid but cannot be mistaken for an account
  * at a real institution.
@@ -80,9 +80,6 @@ public class NzAccountNumberFormat {
         }
 
         String base = "0" + body + checkDigit;
-        if (Integer.parseInt(base) >= MAX_BASE_EXCLUSIVE) {
-            return Optional.empty();
-        }
         return Optional.of("%s-%s-%s-%s".formatted(BANK_ID, BRANCH, base, SUFFIX));
     }
 

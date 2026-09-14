@@ -71,10 +71,11 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
-                        // Health is unauthenticated so container orchestration can
-                        // reach it; detail is still withheld (show-details:
-                        // when-authorized), so it reveals up or down and nothing more.
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Note there is no actuator rule here. Actuator is on the
+                        // management port (management.server.port), so nothing is mapped
+                        // at those paths on this one, and managementChain above matches
+                        // them there. A permitAll for /actuator/health on this chain
+                        // would be a dead rule that reads like a live one.
                         .requestMatchers(HttpMethod.GET, "/.well-known/jwks.json").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/token").permitAll()
                         // Default deny. A new endpoint is authenticated because nobody

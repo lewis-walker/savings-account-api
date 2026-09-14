@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { signedOut } from '../auth/authSlice';
 import type { RootState } from '../store';
 import type { Account, AccountRow, Problem } from './types';
 
@@ -59,7 +60,7 @@ const baseQueryWithAuthHandling: BaseQueryFn<
 > = async (args, api, extraOptions) => {
   const result = await baseQuery(args, api, extraOptions);
   if (result.error?.status === 401) {
-    api.dispatch({ type: 'auth/signedOut' });
+    api.dispatch(signedOut());
   }
   return result;
 };
@@ -87,8 +88,10 @@ export const api = createApi({
 
     listAccounts: builder.query<AccountRow[], void>({
       query: () => '/accounts',
-      // Server rows are keyed by their id. Optimistic rows get a generated ref instead;
-      // both end up in the same list and neither key ever changes under React.
+      // Server rows are keyed by their id; optimistic rows get a generated ref. The key
+      // is stable across the create and its reconciliation, which is the transition that
+      // would otherwise remount a row on screen. A later refetch rebuilds the list and
+      // re-keys from the id, which is fine because every row is replaced at once.
       transformResponse: (accounts: Account[]): AccountRow[] =>
         accounts.map((account) => ({ ...account, clientRef: account.id })),
       providesTags: ['Account'],
@@ -121,7 +124,7 @@ export const api = createApi({
 
       async onQueryStarted({ clientRef, nickname }, { dispatch, queryFulfilled }) {
         // 1. Optimistic: show the row immediately, marked as not yet confirmed.
-        const patch = dispatch(
+        dispatch(
           api.util.updateQueryData('listAccounts', undefined, (draft) => {
             draft.push({ clientRef, nickname, pending: true });
           }),
@@ -130,23 +133,44 @@ export const api = createApi({
         try {
           const { data } = await queryFulfilled;
 
-          // 2. Reconcile in place. The server's values are merged onto the existing
-          //    row, and clientRef is explicitly preserved - that is what keeps the key
-          //    stable across the transition from pending to confirmed.
+          // 2. Reconcile. An upsert, not a merge-if-present: the optimistic row may be
+          //    gone by now - a reconnect refetch rebuilds the list, and a create
+          //    submitted while the first list GET is still in flight has no row to find.
+          //    Because this mutation deliberately does not invalidate, a no-op here
+          //    means a committed account that never appears. Matching on the server id
+          //    as well as the ref matters too: a refetch may already have brought the
+          //    row back, and pushing again would duplicate it.
           dispatch(
             api.util.updateQueryData('listAccounts', undefined, (draft) => {
-              const row = draft.find((candidate) => candidate.clientRef === clientRef);
+              const row = draft.find(
+                (candidate) => candidate.clientRef === clientRef || candidate.id === data.id,
+              );
               if (row) {
-                Object.assign(row, data, { clientRef, pending: false });
+                // The row's own ref, not the one passed in: a row a refetch brought back
+                // is keyed by its id, and re-keying it here would remount it.
+                Object.assign(row, data, { clientRef: row.clientRef, pending: false });
+              } else {
+                draft.push({ ...data, clientRef, pending: false });
               }
             }),
           );
         } catch {
-          // 3. Roll back. The optimistic row disappears and the caller surfaces the
-          //    problem document. Never leave a row the server rejected on screen: a
-          //    customer who thinks they have six accounts is worse off than one who
-          //    saw an error.
-          patch.undo();
+          // 3. Roll back by identity, not with patch.undo(). undo() replays Immer's
+          //    inverse patch, which is "remove index N" - and if the list changed in the
+          //    meantime, say a reconnect refetch landed, that deletes whatever now sits
+          //    at N. Removing the row we actually added cannot take someone else's with
+          //    it.
+          //
+          //    Never leave a row the server rejected on screen: a customer who believes
+          //    they hold six accounts is worse off than one who saw an error.
+          dispatch(
+            api.util.updateQueryData('listAccounts', undefined, (draft) => {
+              const index = draft.findIndex((candidate) => candidate.clientRef === clientRef);
+              if (index >= 0) {
+                draft.splice(index, 1);
+              }
+            }),
+          );
         }
       },
     }),

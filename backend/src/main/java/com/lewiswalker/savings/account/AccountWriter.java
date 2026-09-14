@@ -2,24 +2,23 @@ package com.lewiswalker.savings.account;
 
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
- * One attempt at opening an account, in its own transaction.
+ * One attempt at opening an account.
  *
- * <p>Separate from {@link AccountService} for a reason that is easy to get wrong.
- * Postgres aborts the whole transaction when a constraint fires — every subsequent
- * statement on that connection fails with "current transaction is aborted" until it
- * rolls back. So a retry cannot happen inside the transaction that just failed; it
- * needs a fresh one. That means the retry loop has to sit outside the transactional
- * boundary, and {@code REQUIRES_NEW} has to be crossed through a real proxy — calling
- * a {@code @Transactional} method on {@code this} goes straight to the method and
- * silently does nothing. Two beans, so the proxy is unavoidable.
+ * <p>Not transactional itself. The caller opens the transaction with a
+ * {@code TransactionTemplate}, because the retry in {@link AccountService} needs a new
+ * one per attempt: Postgres aborts a transaction when a constraint fires, and every
+ * statement after that fails until it rolls back.
+ *
+ * <p>This used to be {@code @Transactional(REQUIRES_NEW)} and existed as a separate bean
+ * so the call crossed a Spring proxy — a call to {@code this.attemptOpen()} would have
+ * gone straight to the method and the annotation would have been ignored without
+ * warning. The template removes that problem rather than working around it. The class
+ * stays because one attempt and the policy that repeats it are different jobs.
  */
 @Component
 public class AccountWriter {
@@ -42,21 +41,26 @@ public class AccountWriter {
      * @throws AccountCapReachedException if the customer is already full
      * @throws SequenceContendedException if another request took the slot; caller may retry
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Account attemptOpen(UUID customerId, String customerName, String nickname, int cap) {
         short sequenceNo = repository.nextSequenceNo(customerId);
 
         // Cheap pre-check purely so the common "customer is full" case returns a clean
-        // answer without provoking a constraint. It is not the enforcement — a
-        // concurrent request can still take the last slot between here and the insert,
-        // which is what the CHECK below is for.
+        // answer without provoking a constraint. It is not the enforcement: a concurrent
+        // request can still take the last slot between here and the insert, and the
+        // unique index below is what resolves that — both requests compute the same
+        // sequence number, one loses, and the loser retries and finds the customer full.
+        // The CHECK bounds the series rather than resolving the race.
         if (sequenceNo > cap) {
             throw new AccountCapReachedException(customerId, cap);
         }
 
-        // Minted before allocation so it can serve as the allocator's client
-        // reference. Once idempotency keys exist, the key is the better reference:
-        // it is stable across a client's retries, where a fresh id is not.
+        // Minted before allocation so it can serve as the allocator's client reference.
+        //
+        // TODO: pass the request's Idempotency-Key down instead. It is stable across a
+        // client's retries, where this id is fresh on every attempt. It changes nothing
+        // for the local allocator, which ignores the reference because a sequence draw
+        // inside this transaction leaves no partial state - it matters for a remote
+        // allocator, where a lost response is exactly what the reference exists for.
         UUID id = UUID.randomUUID();
 
         Account account = new Account(
@@ -80,7 +84,7 @@ public class AccountWriter {
             events.publishEvent(new AccountOpened(AccountView.of(saved)));
             return saved;
         } catch (DataIntegrityViolationException e) {
-            String constraint = constraintNameOf(e);
+            String constraint = ConstraintNames.of(e);
             if (CAP_CONSTRAINT.equals(constraint)) {
                 // Lost the race for the last slot. Permanent — the customer is full.
                 throw new AccountCapReachedException(customerId, cap);
@@ -93,19 +97,4 @@ public class AccountWriter {
         }
     }
 
-    /**
-     * Which constraint actually fired.
-     *
-     * <p>Treating every {@code DataIntegrityViolationException} the same is how a
-     * permanent failure ends up being retried until the retry budget runs out, and the
-     * caller gets a timeout instead of "you already have five accounts".
-     */
-    static String constraintNameOf(DataIntegrityViolationException e) {
-        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException violation) {
-                return violation.getConstraintName();
-            }
-        }
-        return null;
-    }
 }

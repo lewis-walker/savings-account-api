@@ -11,11 +11,15 @@
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /build
 
-# Build scripts first, sources second. A source-only change then reuses the
-# dependency resolution layer instead of re-downloading the world.
+# Build scripts first, sources second, so a source-only change does not invalidate
+# this layer. Dependency downloads are served by the BuildKit cache mount below, which
+# is machine-local - it is not in the image and does not exist on a clean clone or in
+# CI, where the first build downloads everything.
+#
+# chmod because .gitattributes does not set the executable bit on gradlew.
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle/ gradle/
-RUN chmod +x ./gradlew && ./gradlew --no-daemon --version > /dev/null
+RUN chmod +x ./gradlew
 
 COPY src/ src/
 # Tests are deliberately not run here. They use Testcontainers, which needs a
@@ -46,6 +50,10 @@ FROM eclipse-temurin:21-jre AS runtime
 # from outside the container and needs nothing installed inside it, which is why
 # a production image would be distroless — no shell, no package manager, far less
 # to patch.
+# One package, so that compose can health-check the container. Unpinned, which is a
+# reproducibility hole in an image whose whole claim is that it builds from nothing -
+# a production build would pin the version or, better, use a distroless base and let
+# the orchestrator probe from outside, needing nothing installed at all.
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/* \

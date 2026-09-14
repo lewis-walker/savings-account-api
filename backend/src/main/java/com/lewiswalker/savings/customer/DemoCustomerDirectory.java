@@ -52,7 +52,10 @@ public class DemoCustomerDirectory implements CustomerDirectory {
      * and retrying it would delay a definite no.
      */
     @Cacheable(value = CacheConfig.CUSTOMERS, key = "#customerId",
-            condition = "@featureFlags.redisCacheEnabled()")
+            condition = "@featureFlags.redisCacheEnabled()",
+            // See AccountService#findById: without this, a lookup that finds nothing
+            // attempts a write the cache refuses, and logs a failure that is not one.
+            unless = "#result == null")
     @Retryable(
             includes = CustomerDirectoryUnavailableException.class,
             maxRetries = 2,

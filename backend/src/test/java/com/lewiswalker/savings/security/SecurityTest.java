@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.lewiswalker.savings.TestcontainersConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,12 +32,14 @@ class SecurityTest {
     private JwtDecoder jwtDecoder;
 
     @Test
-    @DisplayName("an unknown endpoint is refused rather than reported - default deny")
+    @DisplayName("an unmapped path is refused rather than reported - default deny")
     void everythingIsAuthenticatedByDefault() throws Exception {
-        // /accounts has no controller yet, and still answers 401 rather than 404,
-        // because security runs first and the rule is deny by default. A new endpoint
-        // is protected because nobody remembered to protect it.
-        mockMvc.perform(get("/accounts")).andExpect(status().isUnauthorized());
+        // A path with no controller at all answers 401 rather than 404, because the
+        // security chain runs before dispatch and the rule is deny by default. Pointed at
+        // a genuinely unmapped path: this used to hit /accounts, which acquired a
+        // controller in the commit after the test was written, so it stopped testing the
+        // property its name claims and started duplicating unauthenticatedIsRefused.
+        mockMvc.perform(get("/no-such-endpoint")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -73,8 +76,34 @@ class SecurityTest {
         // banks here.
         assertThat(wrongPassword.getResponse().getStatus()).isEqualTo(401);
         assertThat(unknownEmail.getResponse().getStatus()).isEqualTo(401);
-        assertThat(unknownEmail.getResponse().getErrorMessage())
-                .isEqualTo(wrongPassword.getResponse().getErrorMessage());
+
+        // The BODY, not getErrorMessage(). ResponseStatusException is rendered as a
+        // problem document rather than through sendError, so getErrorMessage() is null on
+        // both responses and comparing them asserted null == null - which passes happily
+        // against a controller that says "no such email" and "wrong password".
+        //
+        // Everything except the correlation id, which is per-request by design and so is
+        // the one field that must differ.
+        assertThat(withoutCorrelationId(unknownEmail.getResponse().getContentAsString()))
+                .isEqualTo(withoutCorrelationId(wrongPassword.getResponse().getContentAsString()));
+    }
+
+    @Test
+    @DisplayName("a failure the base handler produces still carries the reference")
+    void inheritedProblemDocumentsCarryTheCorrelationId() throws Exception {
+        // The 401 here is a ResponseStatusException, rendered by the inherited
+        // ResponseEntityExceptionHandler rather than by this application's problem()
+        // helper - so it used to come back with no correlationId at all. It is also the
+        // first error most people trigger, and the README tells them to search for the
+        // reference it was not carrying.
+        String body = mockMvc.perform(post("/auth/token")
+                        .header("X-Correlation-Id", "reference-check-001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ada@example.test\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains("reference-check-001");
     }
 
     @Test
@@ -87,11 +116,14 @@ class SecurityTest {
         assertThat(body).contains("RSA");
         assertThat(body).contains("kid");
         // RSA private material rides in d, p, q, dp, dq and qi. Their absence is the
-        // entire contract of this endpoint, so it is asserted rather than assumed.
+        // entire contract of this endpoint, so every one of them is asserted rather than
+        // assumed - and dq is listed explicitly, because doesNotContain("\"q\":") does
+        // not cover it.
         assertThat(body).doesNotContain("\"d\":");
         assertThat(body).doesNotContain("\"p\":");
         assertThat(body).doesNotContain("\"q\":");
         assertThat(body).doesNotContain("\"dp\":");
+        assertThat(body).doesNotContain("\"dq\":");
         assertThat(body).doesNotContain("\"qi\":");
     }
 
@@ -100,6 +132,13 @@ class SecurityTest {
     void garbageTokenIsRejected() throws Exception {
         mockMvc.perform(get("/accounts").header("Authorization", "Bearer not.a.token"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /** The problem document minus the one field that is supposed to differ per request. */
+    private String withoutCorrelationId(String body) {
+        ObjectNode node = (ObjectNode) new ObjectMapper().readTree(body);
+        node.remove("correlationId");
+        return node.toString();
     }
 
     private MvcResult attempt(String email, String password) throws Exception {
